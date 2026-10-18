@@ -32,7 +32,8 @@ android {
     // One APK per CPU architecture, plus a universal one that runs anywhere.
     splits {
         abi {
-            isEnable = true
+            // Only when building releases; debug builds stay a single APK for quick installs.
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
             isUniversalApk = true
@@ -81,6 +82,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.browser:browser:1.8.0")
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-session:1.4.1")
+    implementation("androidx.lifecycle:lifecycle-process:2.8.6")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0")
     implementation("androidx.room:room-runtime:2.6.1")

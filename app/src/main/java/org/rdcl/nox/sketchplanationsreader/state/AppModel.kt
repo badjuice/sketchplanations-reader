@@ -30,6 +30,14 @@ import org.rdcl.nox.sketchplanationsreader.data.connectivity
 import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
 import org.rdcl.nox.sketchplanationsreader.data.db.TopicCount
 import java.net.URI
+import android.net.Uri
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import org.rdcl.nox.sketchplanationsreader.playback.AudioPlayer
 import kotlin.math.roundToInt
 
 enum class Screen(val title: String, val top: Boolean) {
@@ -143,6 +151,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var audioEp by mutableIntStateOf(0); private set
     var pos by mutableFloatStateOf(0f); private set
     var sleepEndsAt by mutableStateOf<Long?>(null); private set
+    /** Length of the loaded audio as decoded; ad insertion can make it differ from the feed. */
+    var actualSeconds by mutableIntStateOf(0); private set
+    private val audio = AudioPlayer(app)
+    private var lastChapter: String? = null
 
     // Transient UI
     /** The image open in the zoom viewer, or null. */
@@ -179,6 +191,15 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             delay(1500)
             if (online && library.indexBuilt) syncWithWebsite(quiet = true)
         }
+        viewModelScope.launch { snapshotFlow { settings.speed }.drop(1).collect { audio.player?.setPlaybackSpeed(it) } }
+        viewModelScope.launch { snapshotFlow { settings.pauseOnCall }.collect { audio.setPauseForCalls(it) } }
+        // Leaving the app pauses audio unless it may carry on in the background, which needs the
+        // shade notification Android requires for background playback.
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                if (playing && !(settings.bgPlay && settings.notifPlayer)) pause()
+            }
+        })
         viewModelScope.launch {
             var first = true
             connectivity(app).collect { c ->
@@ -199,6 +220,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
      * Sketches and topics come first, since every opening screen needs them. The podcast feed is
      * parsed afterwards so it never holds up the first frame.
      */
+    override fun onCleared() {
+        audio.release()
+    }
+
     private suspend fun reloadContent() {
         val all = repo.summaries()
         sketches = all
@@ -540,7 +565,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun isEpOffline(guid: String) = guid in library.epOffline
     fun isEpFav(guid: String) = guid in library.epFav
-    fun seconds(e: Episode) = e.durationSeconds ?: 45 * 60
 
     fun toggleEpFav(guid: String) {
         val was = isEpFav(guid)
@@ -581,7 +605,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         val e = episodes.getOrNull(i) ?: return
         if (playing && i == audioEp) { pause(); return }
         if (!isEpOffline(e.guid) && !online) { flash("Offline — download this episode to listen"); return }
-        if (i != audioEp) { audioEp = i; pos = 0f }
+        if (i != audioEp) { audioEp = i; pos = 0f; actualSeconds = 0 }
         play()
     }
 
@@ -591,26 +615,77 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (!(playing && audioEp == 0)) togglePlay(0)
     }
 
+    /** The current episode's real length once the player knows it, else the feed's figure. */
+    fun seconds(e: Episode) =
+        if (actualSeconds > 0 && episodes.getOrNull(audioEp)?.guid == e.guid) actualSeconds else e.durationSeconds ?: 45 * 60
+
+    private fun chapterAt(e: Episode, atSeconds: Int) =
+        e.chaptersFor(seconds(e)).lastOrNull { it.atSeconds <= atSeconds }?.title
+
     private fun play() {
+        val e = episodes.getOrNull(audioEp) ?: return
+        val uri = Uri.parse(e.audioUrl ?: return flash("This episode has no audio in the feed"))
         playing = true
         if (settings.sleep > 0 && sleepEndsAt == null) sleepEndsAt = System.currentTimeMillis() + settings.sleep * 60_000L
+        viewModelScope.launch {
+            audio.setListener(playerEvents)
+            val p = runCatching { audio.connect(settings.notifPlayer) }.getOrElse {
+                playing = false
+                return@launch flash("Couldn't start the player")
+            }
+            if (p.currentMediaItem?.mediaId != e.guid) {
+                val startMs = (pos * seconds(e) * 1000).toLong()
+                lastChapter = chapterAt(e, (startMs / 1000).toInt())
+                p.setMediaItem(AudioPlayer.item(e, uri, lastChapter), startMs)
+                p.prepare()
+            }
+            p.setPlaybackSpeed(settings.speed)
+            p.play()
+            tick()
+        }
+    }
+
+    /** Mirrors the real player into the UI four times a second while audio is loaded. */
+    private fun tick() {
         playJob?.cancel()
         playJob = viewModelScope.launch {
-            var last = System.currentTimeMillis()
             while (isActive) {
+                val p = audio.player ?: break
+                val e = episodes.getOrNull(audioEp) ?: break
+                if (p.duration != C.TIME_UNSET && p.duration > 0) actualSeconds = (p.duration / 1000).toInt()
+                pos = (p.currentPosition / 1000f / seconds(e)).coerceIn(0f, 1f)
+                // Keep the lock screen's subtitle on the chapter being heard.
+                val chapter = chapterAt(e, (p.currentPosition / 1000).toInt())
+                if (chapter != lastChapter && p.currentMediaItem?.mediaId == e.guid && e.audioUrl != null) {
+                    lastChapter = chapter
+                    p.replaceMediaItem(p.currentMediaItemIndex, AudioPlayer.item(e, Uri.parse(e.audioUrl), chapter))
+                }
+                sleepEndsAt?.let { if (System.currentTimeMillis() >= it) { pause(); flash("Sleep timer — paused"); return@launch } }
+                if (!p.playWhenReady) break
                 delay(250)
-                val now = System.currentTimeMillis()
-                val e = episodes.getOrNull(audioEp) ?: return@launch pause()
-                pos = (pos + (now - last) / 1000f * settings.speed / seconds(e)).coerceAtMost(1f)
-                last = now
-                sleepEndsAt?.let { if (now >= it) { pause(); flash("Sleep timer — paused"); return@launch } }
-                if (pos >= 1f) { finished(); return@launch }
             }
+        }
+    }
+
+    private val playerEvents = object : Player.Listener {
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            playing = playWhenReady
+            if (playWhenReady) tick()
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_ENDED) finished()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            playing = false
+            flash(if (!online) "Offline — download this episode to listen" else "Couldn't play this episode — try again")
         }
     }
 
     fun pause() {
         playing = false
+        audio.player?.pause()
         playJob?.cancel()
         sleepEndsAt = null
     }
@@ -622,7 +697,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         // Newest first, so the next episode in order is the one before it in the list.
         val next = audioEp - 1
         if (settings.continuous && next >= 0) {
-            audioEp = next; pos = 0f
+            audioEp = next; pos = 0f; actualSeconds = 0
             if (isEpOffline(episodes[next].guid) || online) play()
         } else {
             pos = 0f
@@ -630,8 +705,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun seek(i: Int, fraction: Float) {
-        if (i != audioEp) { audioEp = i; if (playing) pause() }
-        pos = fraction.coerceIn(0f, 1f)
+        val f = fraction.coerceIn(0f, 1f)
+        if (i != audioEp) { if (playing) pause(); audioEp = i; actualSeconds = 0 }
+        pos = f
+        val p = audio.player ?: return
+        val e = episodes.getOrNull(i) ?: return
+        if (p.currentMediaItem?.mediaId == e.guid) p.seekTo((f * seconds(e) * 1000).toLong())
     }
 
     fun skip(i: Int, secs: Int) {
