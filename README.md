@@ -56,15 +56,13 @@ back to the debug key.
 | `state/AppModel.kt` | Navigation stack, search debounce, downloads, player, settings actions |
 | `data/` | Room catalogue and sync (`ContentRepository`), DataStore settings and save lists, connectivity |
 
-## What is real and what is still simulated
+## What it does
 
-Real: the whole catalogue (every sketch with its words, tags, related ideas and image versions, plus the
-podcast feed), fetched once through SketchplanationsExplode and stored on the device, refreshed by edit date;
-images through Coil with a large disk cache; offline search over the stored words; navigation, theme,
-typefaces, settings and the save lists; sharing with the licence's credit line; external links.
-
-Still simulated: podcast playback (the player runs a clock, no audio yet) and downloads (Download post, Save
-image and the bulk downloads mark items as kept but don't yet store files). Both are the next milestones.
+The whole catalogue (every sketch with its words, tags, related ideas and image versions, plus the podcast
+feed) is fetched once through SketchplanationsExplode, stored on the device and refreshed by edit date. Search
+runs over the stored words. Downloads keep drawings and episodes as files, so they work with no connection;
+Save image writes a credited PNG to the gallery. Podcast playback uses Media3, with background play and
+lock-screen controls.
 
 ## Licences
 
