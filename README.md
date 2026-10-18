@@ -5,11 +5,14 @@ Jetpack Compose from the Claude Design handoff (`Sketchplanations App.dc.html` +
 Design System).
 
 ```
+git clone --recurse-submodules https://github.com/badjuice/sketchplanations-reader
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:installDebug         # onto a connected device or emulator
 ```
 
-Needs JDK 17+ and the Android SDK (compileSdk 34, minSdk 26).
+Needs JDK 17+ and the Android SDK (compileSdk 34, minSdk 26). Content comes through
+[SketchplanationsExplode](https://github.com/badjuice/SketchplanationsExplode), included as the `explode`
+git submodule and built from source; after pulling, run `git submodule update --init`.
 
 ## Requirements
 

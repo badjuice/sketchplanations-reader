@@ -14,3 +14,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Sketchplanations"
 include(":app")
+
+// Content client, built from source: github.com/badjuice/SketchplanationsExplode (git submodule).
+includeBuild("explode")

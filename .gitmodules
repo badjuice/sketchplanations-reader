@@ -1,0 +1,3 @@
+[submodule "explode"]
+	path = explode
+	url = https://github.com/badjuice/SketchplanationsExplode.git
