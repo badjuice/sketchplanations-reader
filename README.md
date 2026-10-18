@@ -32,6 +32,19 @@ npx git-cliff@2.6.1 --tag vX.Y.Z -o CHANGELOG.md
 git commit -am "chore(release): X.Y.Z" && git tag -a vX.Y.Z -m "X.Y.Z"
 ```
 
+Then build and publish the APKs (one per architecture plus a universal one):
+
+```
+./gradlew :app:assembleRelease      # app/build/outputs/apk/release/app-<abi>-release.apk
+git push --follow-tags
+gh release create vX.Y.Z app/build/outputs/apk/release/*.apk --notes "…"
+```
+
+Release builds are signed with a private key whose location and password live in `~/.gradle/gradle.properties`
+(`SKETCH_RELEASE_STORE`, `SKETCH_RELEASE_PASSWORD`, `SKETCH_RELEASE_ALIAS`), never in the repository. Keep a
+backup of the keystore: installed copies only accept updates signed with the same key. Without it, builds fall
+back to the debug key.
+
 ## Layout
 
 | Path | What |
