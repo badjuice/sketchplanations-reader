@@ -59,6 +59,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
 import org.rdcl.nox.sketchplanationsreader.ui.components.LocalHints
 import org.rdcl.nox.sketchplanationsreader.ui.components.LocalTablet
 import org.rdcl.nox.sketchplanationsreader.ui.components.LocalThumbWhole
+import org.rdcl.nox.sketchplanationsreader.ui.components.LocalImageSource
 import org.rdcl.nox.sketchplanationsreader.ui.components.Lucide
 import org.rdcl.nox.sketchplanationsreader.ui.components.Pill
 import org.rdcl.nox.sketchplanationsreader.ui.components.PressRow
@@ -114,7 +115,7 @@ fun App(m: AppModel, dark: Boolean, onToggleTheme: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().background(Sk.colors.surfaceChrome)) {
         // sw600dp: a phone in landscape stays a phone; a tablet either way up is a tablet.
         val tablet = minOf(maxWidth, maxHeight) >= 600.dp
-        CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole) {
+        CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole, LocalImageSource provides m.downloads::image) {
             BackHandler(enabled = m.zoomUrl != null || m.confirm != null || m.egg || m.drawer || m.canGoBack()) {
                 when {
                     m.egg -> m.egg = false

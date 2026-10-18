@@ -31,6 +31,15 @@ import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
 import org.rdcl.nox.sketchplanationsreader.data.db.TopicCount
 import java.net.URI
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import okhttp3.OkHttpClient
+import org.rdcl.nox.sketchplanations.explode.Images
+import org.rdcl.nox.sketchplanations.explode.Rendition
+import org.rdcl.nox.sketchplanationsreader.data.Downloads
+import org.rdcl.nox.sketchplanationsreader.data.Gallery
+import org.rdcl.nox.sketchplanationsreader.data.bytes
+import org.rdcl.nox.sketchplanationsreader.ui.image
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -74,6 +83,8 @@ sealed interface Effect {
     data class OpenUrl(val url: String, val inApp: Boolean) : Effect
     data class Share(val text: String) : Effect
     data class Email(val to: String, val subject: String, val body: String) : Effect
+    /** Android 8–9 only: storage permission for saving into Pictures. */
+    data object RequestStorage : Effect
 }
 
 class AppModel(app: Application) : AndroidViewModel(app) {
@@ -154,6 +165,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Length of the loaded audio as decoded; ad insertion can make it differ from the feed. */
     var actualSeconds by mutableIntStateOf(0); private set
     private val audio = AudioPlayer(app)
+    private val http = OkHttpClient.Builder().callTimeout(10, java.util.concurrent.TimeUnit.MINUTES).build()
+    /** Stored drawings and episodes. Screens ask it what to load for an image. */
+    val downloads = Downloads(app, http)
     private var lastChapter: String? = null
 
     // Transient UI
@@ -182,6 +196,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             settings = s
             library = l
             reloadContent()
+            refreshSizes()
             library = library.copy(indexBuilt = sketches.isNotEmpty())
             if (!l.onboarded) screen = Screen.Onboarding
             loaded = true
@@ -450,7 +465,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             syncPct = null
             when (result) {
                 is SyncResult.Done -> {
+                    val before = sketches.map { it.uid }.toSet()
                     reloadContent()
+                    autoDownload(sketches.filter { it.uid !in before })
                     updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
                     if (syncState != SyncState.Running) syncState = SyncState.Done
                     if (!quiet) pulse("sync", if (result.changed == 0) "Up to date" else "${result.changed} updated")
@@ -459,6 +476,19 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 SyncResult.Offline -> if (!quiet) flash("Offline — connect to check for new sketches")
                 is SyncResult.Failed -> if (!quiet) flash("Couldn't reach the site — try again later")
             }
+        }
+    }
+
+    /** "Auto-download new sketches": fetch new arrivals after a sync, respecting Wi-Fi only. */
+    private fun autoDownload(fresh: List<SketchSummary>) {
+        if (!settings.autoDl || fresh.isEmpty() || fresh.size > 20) return
+        if (conn != Conn.Wifi && settings.wifiOnly) return
+        viewModelScope.launch {
+            fresh.forEach { s ->
+                runCatching { downloads.saveImages(s.image, renditions()) }
+                    .onSuccess { updateLibrary { if (s.uid in offline) this else copy(offline = offline + s.uid) } }
+            }
+            refreshSizes()
         }
     }
 
@@ -508,26 +538,34 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         return false
     }
 
+    /** The drawing at reading size, plus HD when that setting is on. The words are always stored. */
+    private fun renditions() = if (settings.hd) listOf(Rendition.Read, Rendition.Hd) else listOf(Rendition.Read)
+
     fun toggleDownload(uid: String) {
+        val s = byUid[uid] ?: return
         if (isOffline(uid)) {
+            downloads.deleteImages(s.image)
             updateLibrary { copy(offline = offline - uid) }
+            refreshSizes()
             flash("Removed from offline")
             return
         }
         if (dl == uid || downloadBlocked()) return
         dlJob?.cancel()
         dl = uid; pct = 0
-        val from = System.currentTimeMillis()
         dlJob = viewModelScope.launch {
-            while (true) {
-                val p = ((System.currentTimeMillis() - from) / 1400f * 100).roundToInt().coerceAtMost(100)
-                pct = p
-                if (p >= 100) break
-                delay(60)
+            try {
+                downloads.saveImages(s.image, renditions()) { pct = (it * 100).roundToInt() }
+                updateLibrary { if (uid in offline) this else copy(offline = offline + uid) }
+                pulse("dl", "Downloaded")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                flash("Download failed — check the connection and try again")
+            } finally {
+                dl = null
+                refreshSizes()
             }
-            dl = null
-            updateLibrary { if (uid in offline) this else copy(offline = offline + uid) }
-            pulse("dl", "Downloaded")
         }
     }
 
@@ -537,10 +575,39 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         pulse("fav", if (was) "Removed" else "Favourited")
     }
 
+    /** Copies the HD drawing into the gallery (or the chosen folder), credit in name and description. */
     fun toggleGallery(uid: String) {
-        val was = inGallery(uid)
-        updateLibrary { copy(gallery = if (was) gallery - uid else gallery + uid) }
-        pulse("gal", if (was) "Removed" else "Saved to gallery")
+        val s = byUid[uid] ?: return
+        if (inGallery(uid)) return flash("Already saved — look in Pictures › Sketchplanations")
+        viewModelScope.launch {
+            pulse("gal", "Saving…")
+            val img = s.image
+            val (bytes, mime) = try {
+                if (img.isAnimated) http.bytes(img.original) to "image/gif"
+                // Ask for PNG outright: with auto=format the image service would pick JPEG or WebP.
+                else http.bytes(img.original + "?fm=png&w=2400&fit=max") to "image/png"
+            } catch (e: Exception) {
+                // Offline: fall back to a downloaded copy if there is one.
+                val local = downloads.image(img, Rendition.Hd).takeIf { it.startsWith("file:") }
+                    ?.let { java.io.File(Uri.parse(it).path!!).readBytes() }
+                    ?: return@launch flash("Offline — connect to save this image")
+                local to (if (img.isAnimated) "image/gif" else "image/webp")
+            }
+            val credit = Gallery.Credit(s.title, "https://sketchplanations.com/${s.uid}")
+            when (val res = Gallery.save(getApplication(), bytes, s.title, mime, credit, settings.downloadFolder)) {
+                is Gallery.Result.Saved -> {
+                    updateLibrary { if (uid in gallery) this else copy(gallery = gallery + uid) }
+                    pulse("gal", "Saved to gallery")
+                    flash("Saved to ${res.where}")
+                }
+                Gallery.Result.NeedsPermission -> {
+                    pulse = null
+                    effectChannel.trySend(Effect.RequestStorage)
+                    flash("Allow storage access, then tap Save image again")
+                }
+                is Gallery.Result.Failed -> { pulse = null; flash("Couldn't save the image") }
+            }
+        }
     }
 
     /** Shares carry the credit in the wording the licence page asks for, with the sketch's address. */
@@ -559,7 +626,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeFavourite(uid: String) { updateLibrary { copy(favourites = favourites - uid) }; flash("Removed from favourites") }
-    fun removeOffline(uid: String) { updateLibrary { copy(offline = offline - uid) }; flash("Offline copy deleted") }
+    fun removeOffline(uid: String) {
+        byUid[uid]?.let { downloads.deleteImages(it.image) }
+        updateLibrary { copy(offline = offline - uid) }
+        refreshSizes()
+        flash("Offline copy deleted")
+    }
 
     // ---- podcast -------------------------------------------------------------------------
 
@@ -573,30 +645,41 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleEpDownload(guid: String) {
+        val e = episodes.firstOrNull { it.guid == guid } ?: return
         if (isEpOffline(guid)) {
+            downloads.deleteEpisode(guid)
             updateLibrary { copy(epOffline = epOffline - guid) }
+            refreshSizes()
             flash("Episode removed")
             return
         }
+        val url = e.audioUrl ?: return flash("This episode has no audio in the feed")
         if (epDl == guid || downloadBlocked()) return
         epDlJob?.cancel()
         epDl = guid; epPct = 0
-        val from = System.currentTimeMillis()
         epDlJob = viewModelScope.launch {
-            while (true) {
-                val p = ((System.currentTimeMillis() - from) / 1800f * 100).roundToInt().coerceAtMost(100)
-                epPct = p
-                if (p >= 100) break
-                delay(60)
+            try {
+                downloads.saveEpisode(guid, url) { epPct = (it * 100).roundToInt() }
+                updateLibrary { if (guid in epOffline) this else copy(epOffline = epOffline + guid) }
+                pulse("epdl", "Downloaded")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                flash("Download failed — check the connection and try again")
+            } finally {
+                epDl = null
+                refreshSizes()
             }
-            epDl = null
-            updateLibrary { if (guid in epOffline) this else copy(epOffline = epOffline + guid) }
-            pulse("epdl", "Downloaded")
         }
     }
 
     fun removeEpFav(guid: String) { updateLibrary { copy(epFav = epFav - guid) }; flash("Removed from favourites") }
-    fun removeEpOffline(guid: String) { updateLibrary { copy(epOffline = epOffline - guid) }; flash("Episode deleted") }
+    fun removeEpOffline(guid: String) {
+        downloads.deleteEpisode(guid)
+        updateLibrary { copy(epOffline = epOffline - guid) }
+        refreshSizes()
+        flash("Episode deleted")
+    }
 
     /** Position shown for an episode: live for the one in the player, the start for any other. */
     fun posFor(i: Int) = if (i == audioEp) pos else 0f
@@ -624,7 +707,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     private fun play() {
         val e = episodes.getOrNull(audioEp) ?: return
-        val uri = Uri.parse(e.audioUrl ?: return flash("This episode has no audio in the feed"))
+        val uri = if (downloads.hasEpisode(e.guid)) Uri.fromFile(downloads.episodeFile(e.guid))
+        else Uri.parse(e.audioUrl ?: return flash("This episode has no audio in the feed"))
         playing = true
         if (settings.sleep > 0 && sleepEndsAt == null) sleepEndsAt = System.currentTimeMillis() + settings.sleep * 60_000L
         viewModelScope.launch {
@@ -656,9 +740,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 pos = (p.currentPosition / 1000f / seconds(e)).coerceIn(0f, 1f)
                 // Keep the lock screen's subtitle on the chapter being heard.
                 val chapter = chapterAt(e, (p.currentPosition / 1000).toInt())
-                if (chapter != lastChapter && p.currentMediaItem?.mediaId == e.guid && e.audioUrl != null) {
+                val loaded = p.currentMediaItem?.localConfiguration?.uri
+                if (chapter != lastChapter && p.currentMediaItem?.mediaId == e.guid && loaded != null) {
                     lastChapter = chapter
-                    p.replaceMediaItem(p.currentMediaItemIndex, AudioPlayer.item(e, Uri.parse(e.audioUrl), chapter))
+                    p.replaceMediaItem(p.currentMediaItemIndex, AudioPlayer.item(e, loaded, chapter))
                 }
                 sleepEndsAt?.let { if (System.currentTimeMillis() >= it) { pause(); flash("Sleep timer — paused"); return@launch } }
                 if (!p.playWhenReady) break
@@ -693,7 +778,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun finished() {
         val e = episodes.getOrNull(audioEp)
         pause()
-        if (e != null && settings.autoDelete && isEpOffline(e.guid)) updateLibrary { copy(epOffline = epOffline - e.guid) }
+        if (e != null && settings.autoDelete && isEpOffline(e.guid)) {
+            audio.player?.clearMediaItems()
+            downloads.deleteEpisode(e.guid)
+            updateLibrary { copy(epOffline = epOffline - e.guid) }
+            refreshSizes()
+        }
         // Newest first, so the next episode in order is the one before it in the list.
         val next = audioEp - 1
         if (settings.continuous && next >= 0) {
@@ -730,13 +820,25 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     // ---- settings › storage --------------------------------------------------------------
 
-    /** Measured from the first scrape: ~82 KB per sketch at reading size, ~205 KB in HD. */
+    /** Estimate per sketch for planning a bulk download, measured on the first scrape: ~82 KB at reading size, +205 KB in HD. */
     val mbSketch get() = if (settings.hd) 0.29 else 0.09
-    val mbBase = 7.5
     fun epMB(e: Episode) = (e.audioBytes ?: 31_500_000L) / 1e6
-    val sketchMB get() = library.offline.size * mbSketch
-    val podMB get() = episodes.filter { it.guid in library.epOffline }.sumOf(::epMB)
+
+    // Measured on disk, refreshed whenever downloads change.
+    var mbBase by mutableStateOf(0.0); private set
+    var sketchMB by mutableStateOf(0.0); private set
+    var podMB by mutableStateOf(0.0); private set
     val libMB get() = mbBase + sketchMB + podMB
+
+    private fun refreshSizes() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            val db = app.getDatabasePath("content.db").let { f -> listOf(f, java.io.File(f.path + "-wal")).sumOf { it.length() } }
+            mbBase = (db + java.io.File(app.filesDir, "podcast.xml").length()) / 1e6
+            sketchMB = downloads.imageBytes() / 1e6
+            podMB = downloads.episodeBytes() / 1e6
+        }
+    }
 
     fun askBulk(all: Boolean) {
         if (!online) return flash("Offline — connect to download")
@@ -752,28 +854,37 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         ) { bulk(false) })
     }
 
+    /** Downloads everything not yet stored, one item at a time; stops if Wi-Fi goes. */
     private fun bulk(all: Boolean) {
         if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi — bulk downloads never use mobile data")
         if (bulkJob?.isActive == true) return flash("A download is already running")
         bulkJob = viewModelScope.launch {
-            val from = System.currentTimeMillis()
-            val span = if (all) 3000f else 5000f
-            while (true) {
-                val p = ((System.currentTimeMillis() - from) / span * 100).roundToInt().coerceAtMost(100)
-                if (all) bulkSketches = p else bulkEpisodes = p
-                if (p >= 100) break
-                if (conn != Conn.Wifi) { bulkSketches = null; bulkEpisodes = null; flash("Paused — off Wi-Fi"); return@launch }
-                delay(60)
-            }
+            var failed = 0
             if (all) {
+                val todo = sketches.filter { it.uid !in library.offline }
+                todo.forEachIndexed { i, s ->
+                    if (conn != Conn.Wifi) { bulkSketches = null; refreshSizes(); return@launch flash("Paused — off Wi-Fi. Tap Download to carry on.") }
+                    bulkSketches = (i * 100 / todo.size.coerceAtLeast(1)).coerceAtMost(99)
+                    runCatching { downloads.saveImages(s.image, renditions()) }
+                        .onSuccess { updateLibrary { if (s.uid in offline) this else copy(offline = offline + s.uid) } }
+                        .onFailure { if (it is CancellationException) throw it; failed++ }
+                    if (i % 20 == 0) refreshSizes()
+                }
                 bulkSketches = null
-                updateLibrary { copy(offline = (offline + sketches.map { it.uid }).distinct()) }
-                pulse("bulkS", "Downloaded")
+                pulse("bulkS", if (failed == 0) "Downloaded" else "$failed failed")
             } else {
+                val todo = episodes.filter { it.guid !in library.epOffline && it.audioUrl != null }
+                todo.forEachIndexed { i, e ->
+                    if (conn != Conn.Wifi) { bulkEpisodes = null; refreshSizes(); return@launch flash("Paused — off Wi-Fi. Tap Download to carry on.") }
+                    runCatching { downloads.saveEpisode(e.guid, e.audioUrl!!) { p -> bulkEpisodes = ((i + p) * 100 / todo.size).toInt().coerceAtMost(99) } }
+                        .onSuccess { updateLibrary { if (e.guid in epOffline) this else copy(epOffline = epOffline + e.guid) } }
+                        .onFailure { if (it is CancellationException) throw it; failed++ }
+                    refreshSizes()
+                }
                 bulkEpisodes = null
-                updateLibrary { copy(epOffline = (epOffline + episodes.map { it.guid }).distinct()) }
-                pulse("bulkE", "Downloaded")
+                pulse("bulkE", if (failed == 0) "Downloaded" else "$failed failed")
             }
+            refreshSizes()
         }
     }
 
@@ -784,19 +895,25 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         "Delete downloaded sketches?",
         "This removes ${plural(library.offline.size, "sketch", "sketches")} — ${mb(sketchMB)}. Your favourites stay.",
         "Delete sketches",
-    ) { updateLibrary { copy(offline = emptyList()) }; flash("Downloaded sketches deleted") })
+    ) { downloads.deleteAllImages(); updateLibrary { copy(offline = emptyList()) }; refreshSizes(); flash("Downloaded sketches deleted") })
 
     fun askDeleteEpisodes() = ask(Confirm(
         "Delete downloaded episodes?",
         "This removes ${plural(library.epOffline.size, "episode", "episodes")} — ${mb(podMB)}. Your favourites stay.",
         "Delete episodes",
-    ) { updateLibrary { copy(epOffline = emptyList()) }; flash("Downloaded episodes deleted") })
+    ) { audio.player?.clearMediaItems(); downloads.deleteAllEpisodes(); updateLibrary { copy(epOffline = emptyList()) }; refreshSizes(); flash("Downloaded episodes deleted") })
 
     fun askDeleteAll() = ask(Confirm(
         "Delete all downloads?",
         "This removes ${plural(library.offline.size, "sketch", "sketches")} and ${plural(library.epOffline.size, "episode", "episodes")} — ${mb(sketchMB + podMB)}. Your favourites stay.",
         "Delete everything",
-    ) { updateLibrary { copy(offline = emptyList(), epOffline = emptyList()) }; flash("Downloads cleared") })
+    ) {
+        audio.player?.clearMediaItems()
+        downloads.deleteAllImages(); downloads.deleteAllEpisodes()
+        updateLibrary { copy(offline = emptyList(), epOffline = emptyList()) }
+        refreshSizes()
+        flash("Downloads cleared")
+    })
 
     fun tapVersion() {
         verTaps++

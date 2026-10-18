@@ -172,11 +172,11 @@ fun DetailScreen(m: AppModel) {
         val ratio = img.width?.let { w -> img.height?.let { h -> (w.toFloat() / h).coerceIn(.6f, 2.2f) } }
         Box(
             Modifier.fillMaxWidth().then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.height(300.dp))
-                .background(Art.page).noRippleClick({ if (!held) m.zoomUrl = Images.url(img, Rendition.Hd) }),
+                .background(Art.page).noRippleClick({ if (!held) m.zoomUrl = m.downloads.image(img, Rendition.Hd) }),
         ) {
             if (!held) {
                 AsyncImage(
-                    model = Images.url(img, Rendition.Read), contentDescription = img.alt, contentScale = ContentScale.Fit,
+                    model = m.downloads.image(img, Rendition.Read), contentDescription = img.alt, contentScale = ContentScale.Fit,
                     onState = { artFailed = it is AsyncImagePainter.State.Error },
                     modifier = Modifier.fillMaxSize(),
                 )

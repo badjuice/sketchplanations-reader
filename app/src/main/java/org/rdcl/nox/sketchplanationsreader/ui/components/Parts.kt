@@ -93,6 +93,9 @@ val LocalTablet = staticCompositionLocalOf { false }
  */
 val LocalThumbWhole = staticCompositionLocalOf { false }
 
+/** Resolves what to load for an image: a downloaded file when there is one, else its URL. */
+val LocalImageSource = staticCompositionLocalOf<(SketchImage, Rendition) -> String> { { i, r -> Images.url(i, r) } }
+
 /** Reading measure on wide screens: prose holds ~68 characters and centres. */
 val ReadWidth = 600.dp
 
@@ -406,7 +409,7 @@ fun ArtBlock(
                 else -> rendition
             }
             AsyncImage(
-                model = Images.url(image, r),
+                model = LocalImageSource.current(image, r),
                 contentDescription = image.alt,
                 contentScale = if (whole) ContentScale.Fit else ContentScale.Crop,
                 alignment = if (whole) Alignment.Center else Alignment.TopCenter,

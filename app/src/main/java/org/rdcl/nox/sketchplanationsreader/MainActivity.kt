@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
                 is Effect.Share -> startActivity(Intent.createChooser(
                     Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, e.text), null,
                 ))
+                Effect.RequestStorage -> requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
                 is Effect.Email -> startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + e.to))
                     .putExtra(Intent.EXTRA_SUBJECT, e.subject).putExtra(Intent.EXTRA_TEXT, e.body))
             }
