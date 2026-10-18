@@ -53,7 +53,7 @@ client or audio yet. The data source is the site's public Prismic CMS plus the A
 
 ## Licences
 
-**App code:** GPL-3.0-only, see `LICENSE`. Copyright © 2026 Nox Fortes.
+**App code:** GPL-3.0-only, see `LICENSE`. Copyright © 2026 BadJuice ([github.com/badjuice](https://github.com/badjuice)).
 
 **Fonts:** SIL Open Font License 1.1, texts in `licenses/fonts/`.
 

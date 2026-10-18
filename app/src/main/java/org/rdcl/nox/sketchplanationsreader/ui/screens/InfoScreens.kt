@@ -83,9 +83,9 @@ private val sections = listOf(
         "All three make the show independently of this app."),
         listOf("The podcast" to "https://podcast.sketchplanations.com", "Follow the show" to "https://podcast.sketchplanations.com/follow/")),
     Section("app", "Who made this app", listOf(
-        "Built and maintained by Nox Fortes, independently. Not a company, not a product, no analytics, no account.",
+        "Built and maintained by BadJuice, independently. Not a company, not a product, no analytics, no account.",
         "If something in the app is broken it is the app’s to fix. If a sketch is wrong, that is one for the website."),
-        listOf("Report an app problem" to REPORT, "App source" to REPO)),
+        listOf("BadJuice on GitHub" to "https://github.com/badjuice", "Report an app problem" to REPORT, "App source" to REPO)),
     Section("support", "Supporting the work", listOf(
         "If the sketches are useful to you, support them at the source — a paid Substack subscription, a coffee, the Redbubble shop or the book. Nothing you spend there passes through this app, and this app takes nothing."),
         emptyList()),
