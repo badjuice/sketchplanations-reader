@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.rdcl.nox.sketchplanationsreader.BuildConfig
 import org.rdcl.nox.sketchplanationsreader.data.AppSettings
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.data.HomeLayout
 import org.rdcl.nox.sketchplanationsreader.data.LinkStyle
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
@@ -255,8 +254,8 @@ private fun Storage(m: AppModel) {
         Spacer(Modifier.height(16.dp))
         val last = if (lib.lastSync == 0L) "never" else android.text.format.DateUtils.getRelativeTimeSpanString(lib.lastSync).toString()
         StorageAction("Sync with website", "Checks for new sketches. Also runs on launch when online · last $last", m.syncPct, m.pulseFor("sync") ?: "Sync now") { m.syncWithWebsite() }
-        StorageAction("Download all sketches", "${Catalogue.TOTAL_POSTS} posts · about ${(Catalogue.TOTAL_POSTS * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Download") { m.askBulk(true) }
-        StorageAction("Download all episodes", "${Catalogue.TOTAL_EPISODES} episodes · about ${String.format(Locale.UK, "%.1f", Catalogue.TOTAL_EPISODES * m.mbEp / 1024)} GB — large", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Download") { m.askBulk(false) }
+        StorageAction("Download all sketches", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Download") { m.askBulk(true) }
+        StorageAction("Download all episodes", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB — large", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Download") { m.askBulk(false) }
     }
 }
 

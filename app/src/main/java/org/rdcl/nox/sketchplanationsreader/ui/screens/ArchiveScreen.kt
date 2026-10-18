@@ -42,8 +42,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
-import org.rdcl.nox.sketchplanationsreader.data.Sketch
+import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary as Sketch
+import org.rdcl.nox.sketchplanationsreader.ui.date
+import org.rdcl.nox.sketchplanationsreader.ui.image
+import org.rdcl.nox.sketchplanationsreader.ui.num
+import org.rdcl.nox.sketchplanationsreader.ui.year
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Filter
 import org.rdcl.nox.sketchplanationsreader.state.Sort
@@ -76,23 +79,23 @@ fun ArchiveScreen(m: AppModel) {
     val tablet = LocalTablet.current
     val lib = m.library
     val base = when (m.filter) {
-        Filter.Offline -> Catalogue.sketches.filter { it.n in lib.offline }
-        Filter.Favourites -> Catalogue.sketches.filter { it.n in lib.favourites }
-        Filter.All -> Catalogue.sketches
+        Filter.Offline -> m.sketches.filter { it.uid in lib.offline }
+        Filter.Favourites -> m.sketches.filter { it.uid in lib.favourites }
+        Filter.All -> m.sketches
     }
     val flip = if (m.asc) -1 else 1
     val groups: List<ArcGroup> = if (m.sort == Sort.Az) {
         base.sortedWith { a, b -> a.sortKey.compareTo(b.sortKey, ignoreCase = true) * flip }
-            .groupBy { it.sortKey.first().uppercaseChar().toString() }.map { ArcGroup(it.key, it.value) }
+            .groupBy { s -> s.sortKey.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.let { if (it.isDigit()) "#" else it.toString() } ?: "#" }.map { ArcGroup(it.key, it.value) }
     } else {
-        base.sortedWith { a, b -> b.raw.compareTo(a.raw) * flip }.groupBy { it.year }.map { ArcGroup(it.key, it.value) }
+        base.sortedWith { a, b -> b.publishedAt.compareTo(a.publishedAt) * flip }.groupBy { it.year }.map { ArcGroup(it.key, it.value) }
     }
 
     // The rail rekeys to the active sort, direction and filter.
     val present = groups.map { it.key }.toSet()
-    val allKeys = if (m.sort == Sort.Az) ('A'..'Z').map { it.toString() }
+    val allKeys = if (m.sort == Sort.Az) listOf("#") + ('A'..'Z').map { it.toString() }
     else {
-        val years = Catalogue.sketches.map { it.raw.year }
+        val years = m.sketches.map { it.year.toInt() }.ifEmpty { listOf(0) }
         (years.max() downTo years.min()).map { it.toString() }
     }.let { if (m.asc) it.reversed() else it }
     val railOn = if (m.sort == Sort.Az) m.settings.railLetters else m.settings.railYears
@@ -113,7 +116,7 @@ fun ArchiveScreen(m: AppModel) {
     LaunchedEffect(m.scrollTopTick) { if (m.scrollTopTick != tick) state.animateScrollToItem(0) }
 
     Column(Modifier.fillMaxSize()) {
-        if (!lib.indexBuilt) { IndexBanner(m); return@Column }
+        if (m.sketches.isEmpty()) { IndexBanner(m); return@Column }
 
         val azOn = m.sort == Sort.Az
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -148,7 +151,7 @@ fun ArchiveScreen(m: AppModel) {
                     state = state,
                     contentPadding = PaddingValues(start = 16.dp, end = if (rail.isNotEmpty()) 36.dp else 16.dp, bottom = 26.dp),
                 ) {
-                    items(items, key = { if (it is ArchiveItem.Header) "h-${it.key}" else "r-${(it as ArchiveItem.Rows).rows.first().n}" }) { item ->
+                    items(items, key = { if (it is ArchiveItem.Header) "h-${it.key}" else "r-${(it as ArchiveItem.Rows).rows.first().uid}" }) { item ->
                         when (item) {
                             is ArchiveItem.Header -> Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 T(item.key, sans(24, 800, 1f))
@@ -195,8 +198,8 @@ fun ArchiveScreen(m: AppModel) {
 @Composable
 private fun ArchiveRow(m: AppModel, s: Sketch) {
     SketchRow(
-        s.title, "${s.num} · ${s.date}", { m.open(s.n) },
-        offline = m.isOffline(s.n), gallery = m.inGallery(s.n), hd = m.settings.hd,
+        s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
+        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd,
         showPill = true, titleSize = if (m.settings.bigText) 18 else 16,
     )
 }
@@ -266,16 +269,16 @@ private fun IndexBanner(m: AppModel) {
             Column(Modifier.padding(18.dp)) {
                 T("The index isn't built yet", sans(18, 800))
                 Spacer(Modifier.height(8.dp))
-                T("Archive and Topics need the list of every sketch before they can work. Titles and dates only — the drawings stay on the website until you ask for one.",
+                T("Archive and Topics need the list of every sketch before they can work. It's every sketch's words, about 6 MB, fetched once — the drawings stay on the website until you open or download one.",
                     sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
                 Spacer(Modifier.height(14.dp))
                 val running = m.syncState == SyncState.Running
                 InkButton(
                     { if (!running) m.startSync() },
                     bg = if (running) Sk.colors.surfaceCard else Sk.colors.accentAlt,
-                    progress = if (running) m.syncN / Catalogue.TOTAL_POSTS.toFloat() else null,
+                    progress = if (running) m.syncN / m.syncTotal.coerceAtLeast(1).toFloat() else null,
                 ) { fg ->
-                    if (running) T("${m.syncN} of ${Catalogue.TOTAL_POSTS}", mono(14, 700), color = Sk.colors.textPrimary)
+                    if (running) T("${m.syncN} of ${m.syncTotal}", mono(14, 700), color = Sk.colors.textPrimary)
                     else T(if (m.syncState == SyncState.Failed && !m.online) "No connection — try again" else "Build the index", sans(15, 700), color = fg)
                 }
             }

@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.SyncState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
@@ -159,7 +158,7 @@ private fun SyncStage(m: AppModel) {
         SyncState.Failed -> "No connection" to "Skip if you like — Today and Search still work online, and Archive will offer this again."
     }
     val blank = ss == SyncState.Failed || ss == SyncState.Idle
-    val total = m.syncTotal.takeIf { it > 0 } ?: Catalogue.TOTAL_POSTS
+    val total = m.syncTotal.takeIf { it > 0 } ?: 990
     val frac by animateFloatAsState(if (blank) 0f else m.syncN / total.toFloat(), tween(240, easing = EaseOut), label = "sync")
     Column {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {

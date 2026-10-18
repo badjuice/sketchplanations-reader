@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +49,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import org.rdcl.nox.sketchplanations.explode.Images
+import org.rdcl.nox.sketchplanations.explode.Rendition
+import org.rdcl.nox.sketchplanations.explode.SketchImage
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -359,15 +365,16 @@ fun InkRule(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height(
 @Composable
 fun Hairline(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height(1.dp).background(Sk.colors.borderQuiet))
 
-// ---- artwork placeholders -----------------------------------------------------------------
+// ---- artwork ------------------------------------------------------------------------------
 
 /**
- * Sketch artwork placeholder. Always cream, always ink-lined, in both themes — artwork never
- * inverts, tints or takes a shadow of its own colour.
+ * A sketch's artwork. Always on cream, always ink-lined, in both themes — artwork never inverts,
+ * tints or takes a shadow of its own colour.
  *
- * A [framed] block is a thumbnail-like slot that follows the Thumbnails setting: cropped fills
- * the slot, whole letterboxes the sketch on the page ground. With real images this is
- * ContentScale.Crop + TopCenter versus ContentScale.Fit.
+ * With an [image], the [rendition] is fetched (or served from the disk cache when offline). A
+ * [framed] slot follows the Thumbnails setting: cropped fills the slot anchored at the top, where
+ * the idea sits; whole letterboxes the sketch on the page ground so the logo stays in view. [fit]
+ * always shows the whole image. The [caption] shows while there is no picture.
  */
 @Composable
 fun ArtBlock(
@@ -376,10 +383,14 @@ fun ArtBlock(
     border: Boolean = true,
     caption: String? = null,
     framed: Boolean = false,
+    image: SketchImage? = null,
+    rendition: Rendition = Rendition.Thumb,
+    fit: Boolean = false,
     content: @Composable () -> Unit = {},
 ) {
     val shape = RoundedCornerShape(radius)
-    val whole = framed && LocalThumbWhole.current
+    val whole = fit || (framed && LocalThumbWhole.current)
+    var shown by remember(image?.url) { mutableStateOf(false) }
     Box(
         modifier
             .clip(shape)
@@ -387,20 +398,32 @@ fun ArtBlock(
             .then(if (border) Modifier.border(2.dp, Art.line, shape) else Modifier),
         contentAlignment = Alignment.BottomStart,
     ) {
-        if (whole) {
-            // Placeholder sketches are 5:3, the site's usual shape.
-            Box(Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(5 / 3f).background(Art.paper))
+        if (image != null) {
+            val r = when {
+                !whole -> rendition
+                rendition == Rendition.Thumb -> Rendition.ThumbWhole
+                rendition == Rendition.Card -> Rendition.Read
+                else -> rendition
+            }
+            AsyncImage(
+                model = Images.url(image, r),
+                contentDescription = image.alt,
+                contentScale = if (whole) ContentScale.Fit else ContentScale.Crop,
+                alignment = if (whole) Alignment.Center else Alignment.TopCenter,
+                onState = { shown = it is AsyncImagePainter.State.Success },
+                modifier = Modifier.fillMaxSize().padding(if (border) 2.dp else 0.dp),
+            )
         }
-        if (caption != null) T(caption, hand(17), Modifier.padding(12.dp), Art.caption)
+        if (caption != null && !shown) T(caption, hand(17), Modifier.padding(12.dp), Art.caption)
         content()
     }
 }
 
 /** Status tags on a thumbnail: is the post here (POST/HD), is the image in the gallery (IMG). */
 @Composable
-fun Thumb(width: Dp, height: Dp, offline: Boolean = false, gallery: Boolean = false, hd: Boolean = true) {
+fun Thumb(width: Dp, height: Dp, image: SketchImage?, offline: Boolean = false, gallery: Boolean = false, hd: Boolean = true) {
     Box(Modifier.size(width, height)) {
-        ArtBlock(Modifier.fillMaxWidth().fillMaxHeight(), framed = true)
+        ArtBlock(Modifier.fillMaxWidth().fillMaxHeight(), framed = true, image = image)
         if (offline || gallery) {
             Row(Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (gallery) ThumbTag("IMG", Sk.colors.penGreen, Sk.colors.ink)
@@ -437,7 +460,7 @@ fun PressRow(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Compo
 /** Archive-style sketch row: 78×62 thumbnail, title, `#num · date`, optional Offline pill. */
 @Composable
 fun SketchRow(
-    title: String, meta: String, onClick: () -> Unit,
+    title: String, meta: String, onClick: () -> Unit, image: SketchImage? = null,
     offline: Boolean = false, gallery: Boolean = false, hd: Boolean = true,
     showPill: Boolean = false, titleSize: Int = 16, thumbW: Dp = 78.dp, thumbH: Dp = 62.dp,
     trailing: (@Composable () -> Unit)? = null,
@@ -445,7 +468,7 @@ fun SketchRow(
     Column {
         PressRow(onClick, Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
             Row(Modifier.padding(horizontal = 6.dp, vertical = 12.dp).weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Thumb(thumbW, thumbH, offline, gallery, hd)
+                Thumb(thumbW, thumbH, image, offline, gallery, hd)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     T(title, sans(titleSize, 700, 1.3f))

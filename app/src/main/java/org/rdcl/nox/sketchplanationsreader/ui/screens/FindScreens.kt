@@ -41,8 +41,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
-import org.rdcl.nox.sketchplanationsreader.data.Sketch
+import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary as Sketch
+import org.rdcl.nox.sketchplanationsreader.ui.date
+import org.rdcl.nox.sketchplanationsreader.ui.image
+import org.rdcl.nox.sketchplanationsreader.ui.num
+import androidx.compose.runtime.produceState
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.SearchPhase
 import org.rdcl.nox.sketchplanationsreader.state.Screen
@@ -75,8 +78,8 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 @Composable
 private fun ResultRow(m: AppModel, s: Sketch, pill: Boolean = false) {
     SketchRow(
-        s.title, "${s.num} · ${s.date}", { m.open(s.n) },
-        offline = m.isOffline(s.n), gallery = m.inGallery(s.n), hd = m.settings.hd, showPill = pill,
+        s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
+        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd, showPill = pill,
         titleSize = if (m.settings.bigText) 18 else 16,
     )
 }
@@ -158,7 +161,7 @@ fun SearchScreen(m: AppModel) {
                     T(m.searchMsg, hand(20, 1.35f), color = Sk.colors.textSecondary)
                 }
                 SearchPhase.Done -> {
-                    val results = Catalogue.search(m.q)
+                    val results = m.results.mapNotNull { m.byUid[it] }
                     if (results.isNotEmpty()) {
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             T("Sketches", sans(21, 800, 1.3f))
@@ -215,7 +218,8 @@ fun Spinner() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CategoriesScreen(m: AppModel) {
-    val max = Catalogue.topics.maxOf { it.count }.toFloat()
+    if (m.topics.isEmpty()) { NothingStored(m); return }
+    val max = m.topics.maxOf { it.count }.coerceAtLeast(1).toFloat()
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp)) {
             T("Every sketch carries a few keywords. See how often each one comes up, or run through all of them A–Z.", sans(16, 400, 1.5f), Modifier.padding(bottom = 18.dp), Sk.colors.textSecondary)
@@ -226,8 +230,8 @@ fun CategoriesScreen(m: AppModel) {
             }
             if (m.catByFreq) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Catalogue.topics.forEach { c ->
-                        Column(Modifier.fillMaxWidth().noRippleClick({ m.openTag(c.name) })) {
+                    m.topics.filter { it.count > 0 }.forEach { c ->
+                        Column(Modifier.fillMaxWidth().noRippleClick({ m.openTag(c.uid) })) {
                             Row(Modifier.fillMaxWidth().padding(bottom = 5.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                                 T(c.name, sans(15, 600))
                                 T(c.count.toString(), mono(13), color = Sk.colors.textTertiary)
@@ -239,12 +243,12 @@ fun CategoriesScreen(m: AppModel) {
                     }
                 }
             } else {
-                Catalogue.topics.sortedBy { it.name }.groupBy { it.name.first().uppercaseChar() }.forEach { (k, rows) ->
+                m.topics.filter { it.count > 0 }.sortedBy { it.name.lowercase() }.groupBy { it.name.first().uppercaseChar() }.forEach { (k, rows) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                         T(k.toString(), sans(17, 800), Modifier.width(20.dp))
                         Spacer(Modifier.width(14.dp))
                         FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rows.forEach { c -> Chip(c.name, { m.openTag(c.name) }, height = null, hPad = 12.dp, vPad = 6.dp, count = c.count.toString(), countStyle = mono(12)) }
+                            rows.forEach { c -> Chip(c.name, { m.openTag(c.uid) }, height = null, hPad = 12.dp, vPad = 6.dp, count = c.count.toString(), countStyle = mono(12)) }
                         }
                     }
                     Hairline()
@@ -259,12 +263,14 @@ fun CategoriesScreen(m: AppModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TagScreen(m: AppModel) {
-    val rows = Catalogue.sketches.filter { m.tag in it.tags }.sortedByDescending { it.raw }
+    val rows by produceState(emptyList<Sketch>(), m.tag, m.contentVersion) {
+        value = m.repo.sketchUidsForTopic(m.tag).mapNotNull { m.byUid[it] }
+    }
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 12.dp)) {
             Eyebrow("Tag")
             Spacer(Modifier.height(6.dp))
-            T(m.tag, heading(30, 1.2f))
+            T(m.topicName(m.tag), heading(30, 1.2f))
             Spacer(Modifier.height(4.dp))
             T("${rows.size} ${if (rows.size == 1) "sketch" else "sketches"}", mono(13), color = Sk.colors.textTertiary)
         }
@@ -277,8 +283,8 @@ fun TagScreen(m: AppModel) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp)) {
             T("Other tags", sans(16, 700), Modifier.padding(bottom = 12.dp), Sk.colors.textSecondary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Catalogue.topics.filter { it.name != m.tag }.take(8).forEach { c ->
-                    Chip(c.name, { m.openTag(c.name) }, height = null, hPad = 12.dp, vPad = 5.dp, style = sans(13, 600), count = c.count.toString(), countStyle = mono(11))
+                m.topics.filter { it.uid != m.tag && it.count > 0 }.take(8).forEach { c ->
+                    Chip(c.name, { m.openTag(c.uid) }, height = null, hPad = 12.dp, vPad = 5.dp, style = sans(13, 600), count = c.count.toString(), countStyle = mono(11))
                 }
             }
         }
@@ -291,7 +297,7 @@ fun TagScreen(m: AppModel) {
 fun LibraryScreen(m: AppModel) {
     val lib = m.library
     val ids = if (m.libFavTab) lib.favourites else lib.offline
-    val rows = ids.mapNotNull { Catalogue.sketch(it) }
+    val rows = ids.mapNotNull { m.byUid[it] }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Favourites ${lib.favourites.size}", { m.libFavTab = true }, on = m.libFavTab)
@@ -302,12 +308,12 @@ fun LibraryScreen(m: AppModel) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 26.dp)) {
                 Columns(rows) { s ->
                     SketchRow(
-                        s.title, "${s.num} · ${if (m.libFavTab) s.date else s.size}", { m.open(s.n) },
-                        offline = m.isOffline(s.n), gallery = m.inGallery(s.n), hd = m.settings.hd,
+                        s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
+                        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd,
                         titleSize = if (m.settings.bigText) 18 else 16, thumbW = 72.dp, thumbH = 58.dp,
                         trailing = {
                             DeleteButton(if (m.libFavTab) "Remove from favourites" else "Delete offline copy") {
-                                if (m.libFavTab) m.removeFavourite(s.n) else m.removeOffline(s.n)
+                                if (m.libFavTab) m.removeFavourite(s.uid) else m.removeOffline(s.uid)
                             }
                         },
                     )

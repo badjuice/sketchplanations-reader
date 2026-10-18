@@ -37,8 +37,16 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
-import org.rdcl.nox.sketchplanationsreader.data.Episode
+import org.rdcl.nox.sketchplanations.explode.Episode
+import org.rdcl.nox.sketchplanationsreader.ui.code
+import org.rdcl.nox.sketchplanationsreader.ui.dateLabel
+import org.rdcl.nox.sketchplanationsreader.ui.lengthLabel
+import org.rdcl.nox.sketchplanationsreader.ui.image
+import org.rdcl.nox.sketchplanationsreader.ui.num
+import org.rdcl.nox.sketchplanationsreader.ui.date
+import org.rdcl.nox.sketchplanations.explode.Rendition
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.clock
@@ -73,9 +81,10 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.mono
 import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 
 @Composable
-private fun EpisodeSquare(num: Int, size: Dp = 54.dp) {
-    ArtBlock(Modifier.size(size)) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { T(num.toString(), mono(14, 700), color = Art.caption) }
+private fun EpisodeSquare(e: Episode, size: Dp = 54.dp, radius: Dp = 8.dp) {
+    ArtBlock(Modifier.size(size), radius = radius) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { T(e.number?.toString().orEmpty(), mono(14, 700), color = Art.caption) }
+        if (e.image != null) AsyncImage(e.image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     }
 }
 
@@ -83,18 +92,18 @@ private fun EpisodeSquare(num: Int, size: Dp = 54.dp) {
 
 @Composable
 fun PodcastScreen(m: AppModel) {
-    val latest = Catalogue.episodes[0]
+    val latest = m.episodes.firstOrNull() ?: return NothingStored(m)
     ScreenScroll(m) {
         Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 24.dp)) {
             Highlighter("latest episode 🎧")
             Spacer(Modifier.height(14.dp))
             Row(Modifier.padding(bottom = 18.dp)) {
-                ArtBlock(Modifier.size(96.dp), radius = 12.dp)
+                EpisodeSquare(latest, 96.dp, 12.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     T(latest.title, heading(23, 1.2f))
                     Spacer(Modifier.height(6.dp))
-                    T("EP ${latest.num} · ${latest.len} · ${latest.date}", mono(13), color = Sk.colors.textTertiary)
+                    T(listOf(latest.code, latest.lengthLabel, latest.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(13), color = Sk.colors.textTertiary)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -105,19 +114,19 @@ fun PodcastScreen(m: AppModel) {
         InkRule()
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
             T("All episodes", sans(21, 800, 1.3f))
-            T(Catalogue.episodes.size.toString(), mono(13), color = Sk.colors.textTertiary)
+            T(m.episodes.size.toString(), mono(13), color = Sk.colors.textTertiary)
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
-            Columns(Catalogue.episodes.withIndex().toList()) { (i, e) ->
+            Columns(m.episodes.withIndex().toList()) { (i, e) ->
                 Column {
                     PressRow({ m.openEp(i) }, Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(horizontal = 6.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            EpisodeSquare(e.num)
+                            EpisodeSquare(e)
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
                                 T(e.title, sans(16, 700, 1.3f))
                                 Spacer(Modifier.height(4.dp))
-                                T("${e.len} · ${e.date}", mono(12), color = Sk.colors.textTertiary)
+                                T(listOf(e.code, e.lengthLabel, e.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = Sk.colors.textTertiary)
                             }
                             Box(
                                 Modifier.size(38.dp).hardShadow(Shadow.sm, Sk.colors.shadowInk, CircleShape).clip(CircleShape)
@@ -146,27 +155,29 @@ private fun OutlinePill(text: String, icon: Lucide, onClick: () -> Unit) {
 
 @Composable
 fun EpisodeScreen(m: AppModel) {
-    val e = m.episode
+    val e = m.episode ?: return NothingStored(m)
     val i = m.ep
     val tablet = LocalTablet.current
-    val off = m.isEpOffline(e.num)
-    val fav = m.isEpFav(e.num)
+    val off = m.isEpOffline(e.guid)
+    val fav = m.isEpFav(e.guid)
     val pos = m.posFor(i)
     val playingThis = m.playing && m.audioEp == i
-    val cur = e.seconds * pos
+    val total = m.seconds(e)
+    val cur = total * pos
+    val chapters = e.chaptersFor(total)
     ScreenScroll(m, align = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 18.dp)) {
                 InkCard(Modifier.size(108.dp), bg = Art.paper, shadow = Shadow.md, radius = 12.dp) {
-                    Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.BottomStart) { T("art 1:1 ✎", hand(15), color = Art.caption) }
+                    EpisodeSquare(e, 108.dp, 12.dp)
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    T("EP ${e.num} · ${e.date}", mono(12), color = Sk.colors.textTertiary)
+                    T(listOf(e.code, e.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = Sk.colors.textTertiary)
                     Spacer(Modifier.height(6.dp))
                     T(e.title, heading(25, 1.2f))
                     Spacer(Modifier.height(6.dp))
-                    T(e.len, sans(14), color = Sk.colors.textSecondary)
+                    T(e.lengthLabel, sans(14), color = Sk.colors.textSecondary)
                 }
             }
 
@@ -176,7 +187,7 @@ fun EpisodeScreen(m: AppModel) {
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         T(clock(cur.toInt()), mono(13), color = Sk.colors.textTertiary)
-                        T("-" + clock((e.seconds - cur).toInt()), mono(13), color = Sk.colors.textTertiary)
+                        T("-" + clock((total - cur).toInt()), mono(13), color = Sk.colors.textTertiary)
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -206,12 +217,12 @@ fun EpisodeScreen(m: AppModel) {
             }
 
             Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ActionButton(if (fav) "Favourited" else "Favourite", if (fav) Lucide.StarFilled else Lucide.Star, fav, Modifier.weight(1f)) { m.toggleEpFav(e.num) }
-                val running = m.epDl == e.num
+                ActionButton(if (fav) "Favourited" else "Favourite", if (fav) Lucide.StarFilled else Lucide.Star, fav, Modifier.weight(1f)) { m.toggleEpFav(e.guid) }
+                val running = m.epDl == e.guid
                 ActionButton(
                     m.pulseFor("epdl") ?: if (off) "Downloaded" else "Download", if (off) Lucide.Check else Lucide.Download, off,
                     Modifier.weight(1f), progress = if (running) m.epPct / 100f else null,
-                ) { m.toggleEpDownload(e.num) }
+                ) { m.toggleEpDownload(e.guid) }
             }
 
             if (!off && !m.online) {
@@ -226,18 +237,19 @@ fun EpisodeScreen(m: AppModel) {
                 }
             }
 
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
+            // Chapters are hidden rather than shown wrong when ads have shifted the timing.
+            if (chapters.isNotEmpty()) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
                 T("Chapters", sans(16, 700), Modifier.padding(bottom = 10.dp), Sk.colors.textSecondary)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    e.chapters.forEachIndexed { ci, c ->
-                        val next = e.chapters.getOrNull(ci + 1)?.at ?: e.seconds
-                        val on = cur >= c.at && cur < next
+                    chapters.forEachIndexed { ci, c ->
+                        val next = chapters.getOrNull(ci + 1)?.atSeconds ?: total
+                        val on = cur >= c.atSeconds && cur < next
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (on) Sk.colors.accentAltWash else Color.Transparent)
-                                .noRippleClick({ m.seek(i, c.at.toFloat() / e.seconds) }).padding(horizontal = 12.dp, vertical = 9.dp),
+                                .noRippleClick({ m.seek(i, c.atSeconds.toFloat() / total) }).padding(horizontal = 12.dp, vertical = 9.dp),
                         ) {
-                            T(clock(c.at), mono(13), Modifier.width(56.dp), Sk.colors.textTertiary)
-                            T(c.label, sans(15, if (on) 700 else 600, 1.35f), Modifier.weight(1f), if (on) Sk.colors.accentAlt else Sk.colors.textPrimary)
+                            T(clock(c.atSeconds), mono(13), Modifier.width(56.dp), Sk.colors.textTertiary)
+                            T(c.title, sans(15, if (on) 700 else 600, 1.35f), Modifier.weight(1f), if (on) Sk.colors.accentAlt else Sk.colors.textPrimary)
                         }
                     }
                 }
@@ -246,17 +258,17 @@ fun EpisodeScreen(m: AppModel) {
 
         Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(horizontal = 16.dp)) {
             T("Show notes", sans(16, 700), Modifier.padding(bottom = 10.dp), Sk.colors.textSecondary)
-            e.notes.forEach {
+            e.notesText.split(Regex("\\n\\s*\\n")).map { it.trim() }.filter { it.isNotEmpty() }.forEach {
                 T(it, sans(16, 400, 1.6f))
                 Spacer(Modifier.height(14.dp))
             }
-            val match = Catalogue.sketches.firstOrNull { it.title == e.title }
+            val match = e.sketchUid?.let { m.byUid[it] }
             if (match != null) {
                 Spacer(Modifier.height(8.dp))
-                InkButton({ m.open(match.n) }, Modifier.fillMaxWidth(), bg = Sk.colors.surfaceCard, fg = Sk.colors.textPrimary,
+                InkButton({ m.open(match.uid) }, Modifier.fillMaxWidth(), bg = Sk.colors.surfaceCard, fg = Sk.colors.textPrimary,
                     shape = RoundedCornerShape(18.dp), shadow = Shadow.md, height = null, padding = 12.dp, arrangement = Arrangement.Start) { fg ->
                     Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ArtBlock(Modifier.size(64.dp, 52.dp))
+                        ArtBlock(Modifier.size(64.dp, 52.dp), framed = true, image = match.image)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             T("the sketch ✎", hand(16), color = Sk.colors.textTertiary)
@@ -308,7 +320,7 @@ private fun Waveform(pos: Float, onSeek: (Float) -> Unit) {
 fun PodLibraryScreen(m: AppModel) {
     val lib = m.library
     val ids = if (m.podFavTab) lib.epFav else lib.epOffline
-    val rows: List<Episode> = ids.mapNotNull { n -> Catalogue.episodes.firstOrNull { it.num == n } }
+    val rows: List<Episode> = ids.mapNotNull { g -> m.episodes.firstOrNull { it.guid == g } }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp)) {
             T(String.format(java.util.Locale.UK, "%.1f MB of episodes on this device ✎", m.podMB), hand(18), color = Sk.colors.textSecondary)
@@ -324,20 +336,20 @@ fun PodLibraryScreen(m: AppModel) {
                 Columns(rows) { e ->
                     Column {
                         Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PressRow({ m.openEp(Catalogue.episodeIndex(e.num)) }, Modifier.weight(1f)) {
+                            PressRow({ m.openEp(m.episodes.indexOf(e)) }, Modifier.weight(1f)) {
                                 Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    EpisodeSquare(e.num)
+                                    EpisodeSquare(e)
                                     Spacer(Modifier.width(14.dp))
                                     Column(Modifier.weight(1f)) {
                                         T(e.title, sans(16, 700, 1.3f))
                                         Spacer(Modifier.height(4.dp))
-                                        T("${e.len} · ${if (m.podFavTab) e.date else "31.5 MB"}", mono(12), color = Sk.colors.textTertiary)
+                                        T(listOf(e.lengthLabel, if (m.podFavTab) e.dateLabel else String.format(java.util.Locale.UK, "%.1f MB", m.epMB(e))).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = Sk.colors.textTertiary)
                                     }
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
                             DeleteButton(if (m.podFavTab) "Remove from favourites" else "Delete episode") {
-                                if (m.podFavTab) m.removeEpFav(e.num) else m.removeEpOffline(e.num)
+                                if (m.podFavTab) m.removeEpFav(e.guid) else m.removeEpOffline(e.guid)
                             }
                         }
                         Hairline()
@@ -454,7 +466,8 @@ fun Field(
 @Composable
 fun BrowseScreen(m: AppModel) {
     val tablet = LocalTablet.current
-    val list = Catalogue.byDate.reversed()
+    val list = m.sketches.asReversed()
+    if (list.isEmpty()) return NothingStored(m)
     val i = m.browseIdx.coerceIn(0, list.lastIndex)
     val cur = list[i]
     Column(Modifier.fillMaxSize()) {
@@ -464,19 +477,15 @@ fun BrowseScreen(m: AppModel) {
                 T("${i + 1} of ${list.size}", mono(13), color = Sk.colors.textTertiary)
             }
             InkCard(Modifier.weight(1f).heightIn(min = 220.dp).fillMaxWidth(), bg = Art.paper, shadow = Shadow.md, shadowColor = Sk.colors.shadowInk) {
-                Box(Modifier.fillMaxSize().noRippleClick({ m.open(cur.n) }), contentAlignment = Alignment.BottomStart) {
-                    T("sketch ${cur.num} ✎", hand(17), Modifier.padding(14.dp), Art.caption)
-                    if (m.needsNet(cur.n)) {
-                        Column(Modifier.fillMaxSize().background(Art.paper).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Lucide.WifiOff, Art.caption, 26.dp)
-                            Spacer(Modifier.height(10.dp))
-                            T("Not downloaded — needs a connection", sans(15, 700), color = Art.caption)
-                        }
-                    } else if (m.imageHeld(cur.n)) {
+                Box(Modifier.fillMaxSize().noRippleClick({ m.open(cur.uid) }), contentAlignment = Alignment.BottomStart) {
+                    if (!m.imageHeld(cur.uid)) {
+                        ArtBlock(Modifier.fillMaxSize(), radius = 0.dp, border = false, caption = "sketch ${cur.num} ✎", image = cur.image, rendition = Rendition.Read, fit = true)
+                    }
+                    if (m.imageHeld(cur.uid)) {
                         Column(Modifier.fillMaxSize().background(Art.paper).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             T("held back — you're on mobile data ✎", hand(17), color = Art.caption)
                             Spacer(Modifier.height(12.dp))
-                            InkButton({ m.reveal(cur.n) }, height = 40.dp, padding = 18.dp, border = Art.line, shadowColor = Art.line) { fg ->
+                            InkButton({ m.reveal(cur.uid) }, height = 40.dp, padding = 18.dp, border = Art.line, shadowColor = Art.line) { fg ->
                                 Icon(Lucide.Download, fg, 15.dp, stroke = 2.2f); Spacer(Modifier.width(8.dp)); T("Load image", sans(14, 700), color = fg)
                             }
                         }

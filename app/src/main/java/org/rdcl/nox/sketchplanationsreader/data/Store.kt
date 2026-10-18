@@ -52,12 +52,14 @@ data class AppSettings(
 
 /** The three separate save lists for sketches, their podcast equivalents, and first-run state. */
 data class Library(
-    val favourites: List<Int> = listOf(571, 510, 402),
-    val offline: List<Int> = listOf(589, 578, 487, 350),
-    val gallery: List<Int> = listOf(402),
-    val epFav: List<Int> = listOf(47),
-    val epOffline: List<Int> = listOf(48),
-    val recents: List<String> = listOf("Thinking", "bias", "razor", "work"),
+    /** Sketch uids. */
+    val favourites: List<String> = emptyList(),
+    val offline: List<String> = emptyList(),
+    val gallery: List<String> = emptyList(),
+    /** Episode guids. */
+    val epFav: List<String> = emptyList(),
+    val epOffline: List<String> = emptyList(),
+    val recents: List<String> = emptyList(),
     val onboarded: Boolean = false,
     val indexBuilt: Boolean = false,
     val lastSync: Long = 0L,
@@ -128,23 +130,22 @@ class Store(private val context: Context) {
         )
     }
 
-    private fun ints(a: List<Int>) = JSONArray().apply { a.forEach { put(it) } }
-    private fun JSONObject.ints(k: String, def: List<Int>) =
-        optJSONArray(k)?.let { a -> List(a.length()) { a.getInt(it) } } ?: def
+    private fun strings(a: List<String>) = JSONArray().apply { a.forEach { put(it) } }
+    /** Lists from before real content held prototype numbers; those can't map to sketches, so they read as empty. */
+    private fun JSONObject.strings(k: String) =
+        optJSONArray(k)?.let { a -> List(a.length()) { a.opt(it) }.filterIsInstance<String>() } ?: emptyList()
 
     private fun encode(l: Library) = JSONObject().apply {
-        put("favourites", ints(l.favourites)); put("offline", ints(l.offline)); put("gallery", ints(l.gallery))
-        put("epFav", ints(l.epFav)); put("epOffline", ints(l.epOffline))
-        put("recents", JSONArray().apply { l.recents.forEach { put(it) } })
+        put("favourites", strings(l.favourites)); put("offline", strings(l.offline)); put("gallery", strings(l.gallery))
+        put("epFav", strings(l.epFav)); put("epOffline", strings(l.epOffline))
+        put("recents", strings(l.recents))
         put("onboarded", l.onboarded); put("indexBuilt", l.indexBuilt); put("lastSync", l.lastSync)
     }
 
     private fun decodeLibrary(o: JSONObject): Library {
-        val d = Library()
         return Library(
-            favourites = o.ints("favourites", d.favourites), offline = o.ints("offline", d.offline),
-            gallery = o.ints("gallery", d.gallery), epFav = o.ints("epFav", d.epFav), epOffline = o.ints("epOffline", d.epOffline),
-            recents = o.optJSONArray("recents")?.let { a -> List(a.length()) { a.getString(it) } } ?: d.recents,
+            favourites = o.strings("favourites"), offline = o.strings("offline"), gallery = o.strings("gallery"),
+            epFav = o.strings("epFav"), epOffline = o.strings("epOffline"), recents = o.strings("recents"),
             onboarded = o.optBoolean("onboarded", false), indexBuilt = o.optBoolean("indexBuilt", false),
             lastSync = o.optLong("lastSync", 0L),
         )

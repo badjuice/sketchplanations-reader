@@ -51,7 +51,6 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.rdcl.nox.sketchplanationsreader.BuildConfig
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.components.BarIcon
@@ -116,11 +115,11 @@ fun App(m: AppModel, dark: Boolean, onToggleTheme: () -> Unit) {
         // sw600dp: a phone in landscape stays a phone; a tablet either way up is a tablet.
         val tablet = minOf(maxWidth, maxHeight) >= 600.dp
         CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole) {
-            BackHandler(enabled = m.zoom || m.confirm != null || m.egg || m.drawer || m.canGoBack()) {
+            BackHandler(enabled = m.zoomUrl != null || m.confirm != null || m.egg || m.drawer || m.canGoBack()) {
                 when {
                     m.egg -> m.egg = false
                     m.confirm != null -> m.confirm = null
-                    m.zoom -> m.zoom = false
+                    m.zoomUrl != null -> m.zoomUrl = null
                     m.drawer -> m.drawer = false
                     else -> m.back()
                 }
@@ -182,7 +181,7 @@ private fun ScreenContent(m: AppModel, s: Screen) {
 @Composable
 private fun AppBar(m: AppModel, tablet: Boolean) {
     val title = when (m.screen) {
-        Screen.Tag -> m.tag
+        Screen.Tag -> m.topicName(m.tag)
         else -> m.screen.title
     }
     Column(Modifier.background(Sk.colors.surfaceChrome)) {
@@ -296,13 +295,13 @@ private fun PinnedRail(m: AppModel, dark: Boolean, onToggleTheme: () -> Unit) {
 
 @Composable
 private fun MiniPlayer(m: AppModel) {
-    val e = Catalogue.episodes[m.audioEp]
+    val e = m.episodes.getOrNull(m.audioEp) ?: return
     Row(
         Modifier.fillMaxWidth().background(Sk.colors.ink).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).noRippleClick({ m.openEp(m.audioEp) })) {
-            T("${clock((e.seconds * m.pos).toInt())} · playing", mono(11), color = Sk.colors.paperTint.copy(alpha = .7f))
+            T("${clock((m.seconds(e) * m.pos).toInt())} · playing", mono(11), color = Sk.colors.paperTint.copy(alpha = .7f))
             Spacer(Modifier.height(1.dp))
             T(e.title, sans(14, 700, 1.25f), color = Sk.colors.paperTint, maxLines = 1)
         }
@@ -341,7 +340,7 @@ private fun Overlays(m: AppModel, tablet: Boolean, dark: Boolean, onToggleTheme:
         }
     }
 
-    if (m.zoom) ZoomViewer(m)
+    m.zoomUrl?.let { ZoomViewer(m, it) }
     m.confirm?.let { ConfirmDialog(it, onNo = { m.confirm = null }, onYes = { m.confirm = null; it.act() }) }
     if (m.egg) EasterEgg(onClose = { m.egg = false })
 

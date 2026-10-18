@@ -41,13 +41,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.data.HomeLayout
-import org.rdcl.nox.sketchplanationsreader.data.Sketch
+import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
+import org.rdcl.nox.sketchplanationsreader.ui.code
+import org.rdcl.nox.sketchplanationsreader.ui.date
+import org.rdcl.nox.sketchplanationsreader.ui.image
+import org.rdcl.nox.sketchplanationsreader.ui.lengthLabel
+import org.rdcl.nox.sketchplanationsreader.ui.num
+import org.rdcl.nox.sketchplanations.explode.Rendition
+import java.time.LocalDate
+import kotlin.random.Random
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.components.ArtBlock
 import org.rdcl.nox.sketchplanationsreader.ui.components.CardPill
+import org.rdcl.nox.sketchplanationsreader.ui.components.EmptyState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
 import org.rdcl.nox.sketchplanationsreader.ui.components.Highlighter
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
@@ -74,7 +82,12 @@ import kotlin.math.abs
 
 @Composable
 fun TodayScreen(m: AppModel) {
-    val deck = Catalogue.byDate.take(5)
+    if (m.sketches.isEmpty()) { NothingStored(m); return }
+    val deck = m.sketches.take(5)
+    // A different handful from the archive each day, the same all day.
+    val fromArchive = remember(m.sketches, LocalDate.now().toEpochDay()) {
+        m.sketches.drop(5).shuffled(Random(LocalDate.now().toEpochDay())).take(4)
+    }
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 12.dp)) {
             T("Today's sketch", heading(26))
@@ -84,7 +97,7 @@ fun TodayScreen(m: AppModel) {
 
         if (m.settings.homeLayout == HomeLayout.Deck) Deck(m, deck)
         else Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            deck.forEachIndexed { i, s -> SketchCard(s, i == 0, Modifier.fillMaxWidth(), 212.dp, "sketch ${s.num} ✎") { m.open(s.n) } }
+            deck.forEachIndexed { i, s -> SketchCard(s, i == 0, Modifier.fillMaxWidth(), 212.dp) { m.open(s.uid) } }
         }
 
         InkRule()
@@ -93,18 +106,18 @@ fun TodayScreen(m: AppModel) {
             TextLink("All topics", { m.go(Screen.Categories) })
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Catalogue.topics.take(6).forEach { c ->
-                Chip(c.name, { m.openTag(c.name) }, height = null, hPad = 14.dp, vPad = 8.dp, style = sans(15, 600), count = c.count.toString())
+            m.topics.take(6).forEach { c ->
+                Chip(c.name, { m.openTag(c.uid) }, height = null, hPad = 14.dp, vPad = 8.dp, style = sans(15, 600), count = c.count.toString())
             }
         }
 
         InkRule()
         T("From the archive", sans(21, 800, 1.3f), Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp))
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
-            Catalogue.byDate.drop(5).take(4).forEach { s ->
-                PressRow({ m.open(s.n) }, Modifier.fillMaxWidth()) {
+            fromArchive.forEach { s ->
+                PressRow({ m.open(s.uid) }, Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ArtBlock(Modifier.size(68.dp, 54.dp), framed = true)
+                        ArtBlock(Modifier.size(68.dp, 54.dp), framed = true, image = s.image)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             T(s.title, sans(16, 700, 1.3f), maxLines = 1)
@@ -119,21 +132,21 @@ fun TodayScreen(m: AppModel) {
         }
 
         // The podcast band follows the theme — it does not invert.
-        val latest = Catalogue.episodes[0]
+        val latest = m.episodes.firstOrNull()
         InkRule()
-        Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(horizontal = 16.dp, vertical = 22.dp)) {
+        if (latest != null) Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(horizontal = 16.dp, vertical = 22.dp)) {
             Highlighter("on the podcast this week 🎧")
             Spacer(Modifier.height(8.dp))
             T(latest.title, heading(26, 1.2f))
             Spacer(Modifier.height(6.dp))
-            T("Episode ${latest.num} · ${latest.len} · with Jono, Rob and Tom", sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
+            T(listOf(latest.code, latest.lengthLabel, "with Jono, Rob and Tom").filter { it.isNotEmpty() }.joinToString(" · "), sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Play episode", { m.playLatest() }, Modifier.weight(1f), icon = Lucide.Play)
                 GhostButton("All episodes") { m.go(Screen.Podcast) }
             }
         }
-        InkRule()
+        if (latest != null) InkRule()
 
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 28.dp)) {
             T("Combining 🧠 curiosity, ♥️ heart, and ✍️ art since 2013", hand(19, 1.4f, italic = true).copy(textAlign = TextAlign.Center), Modifier.fillMaxWidth(), Sk.colors.textSecondary)
@@ -158,7 +171,7 @@ fun GhostButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Deck(m: AppModel, deck: List<Sketch>) {
+private fun Deck(m: AppModel, deck: List<SketchSummary>) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val fling = rememberSnapFlingBehavior(state, SnapPosition.Center)
@@ -177,10 +190,10 @@ private fun Deck(m: AppModel, deck: List<Sketch>) {
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        itemsIndexed(deck, key = { _, s -> s.n }) { i, s ->
+        itemsIndexed(deck, key = { _, s -> s.uid }) { i, s ->
             // Leave room for the 3px hard shadow below and right.
             Box(Modifier.padding(end = 3.dp, bottom = 3.dp)) {
-                SketchCard(s, i == 0, Modifier.width(324.dp), 244.dp, "sketch ${s.num} · drop image ✎") { m.open(s.n) }
+                SketchCard(s, i == 0, Modifier.width(324.dp), 244.dp) { m.open(s.uid) }
             }
         }
     }
@@ -202,7 +215,7 @@ private fun Deck(m: AppModel, deck: List<Sketch>) {
 
 /** Deck/feed card. The newest carries the yellow offset; the rest the ink offset. */
 @Composable
-private fun SketchCard(s: Sketch, newest: Boolean, modifier: Modifier, artHeight: Dp, caption: String, onClick: () -> Unit) {
+private fun SketchCard(s: SketchSummary, newest: Boolean, modifier: Modifier, artHeight: Dp, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
     val shape = RoundedCornerShape(Radius.card)
@@ -216,14 +229,28 @@ private fun SketchCard(s: Sketch, newest: Boolean, modifier: Modifier, artHeight
             .border(2.dp, Sk.colors.borderDefault, shape)
             .clickable(src, null, role = Role.Button, onClick = onClick),
     ) {
-        ArtBlock(Modifier.fillMaxWidth().height(artHeight), radius = 0.dp, border = false, caption = caption, framed = true)
+        ArtBlock(Modifier.fillMaxWidth().height(artHeight), radius = 0.dp, border = false, caption = "sketch ${s.num} ✎", framed = true, image = s.image, rendition = Rendition.Card)
         Box(Modifier.fillMaxWidth().height(2.dp).background(Art.line))
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp)) {
             T("${s.num} · ${s.date}", mono(12), color = Sk.colors.textTertiary)
             Spacer(Modifier.height(6.dp))
             T(s.title, heading(22))
             Spacer(Modifier.height(6.dp))
-            T(s.lead, sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
+            T(s.lead, sans(15, 400, 1.5f), color = Sk.colors.textSecondary, maxLines = 3)
         }
+    }
+}
+
+/** Shown on content screens before the catalogue has been fetched, e.g. if the first sync was skipped. */
+@Composable
+fun NothingStored(m: AppModel) {
+    Column(Modifier.padding(16.dp)) {
+        EmptyState(
+            "Nothing stored yet",
+            if (m.online) "The app needs the list of sketches once before it can show anything. It's about 6 MB and takes a few seconds."
+            else "The app needs the list of sketches once before it can show anything. Connect to the internet and fetch it here.",
+            if (m.syncState == org.rdcl.nox.sketchplanationsreader.state.SyncState.Running) "Fetching ${m.syncN}…" else "Fetch the catalogue",
+            { m.startSync() },
+        )
     }
 }

@@ -9,16 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import org.rdcl.nox.sketchplanationsreader.data.AppSettings
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
-import org.rdcl.nox.sketchplanationsreader.data.Conn
-import org.rdcl.nox.sketchplanationsreader.data.ContentRepository
-import org.rdcl.nox.sketchplanationsreader.data.SyncResult
-import org.rdcl.nox.sketchplanationsreader.data.Library
-import org.rdcl.nox.sketchplanationsreader.data.Sketch
-import org.rdcl.nox.sketchplanationsreader.data.SketchLink
-import org.rdcl.nox.sketchplanationsreader.data.Store
-import org.rdcl.nox.sketchplanationsreader.data.connectivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -26,6 +16,20 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.rdcl.nox.sketchplanations.explode.Episode
+import org.rdcl.nox.sketchplanations.explode.Link
+import org.rdcl.nox.sketchplanations.explode.LinkTarget
+import org.rdcl.nox.sketchplanationsreader.data.AppSettings
+import org.rdcl.nox.sketchplanationsreader.data.Conn
+import org.rdcl.nox.sketchplanationsreader.data.ContentRepository
+import org.rdcl.nox.sketchplanationsreader.data.Library
+import org.rdcl.nox.sketchplanationsreader.data.SearchMessages
+import org.rdcl.nox.sketchplanationsreader.data.Store
+import org.rdcl.nox.sketchplanationsreader.data.SyncResult
+import org.rdcl.nox.sketchplanationsreader.data.connectivity
+import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
+import org.rdcl.nox.sketchplanationsreader.data.db.TopicCount
+import java.net.URI
 import kotlin.math.roundToInt
 
 enum class Screen(val title: String, val top: Boolean) {
@@ -49,7 +53,7 @@ enum class Screen(val title: String, val top: Boolean) {
 }
 
 /** A history entry. Sketch → linked sketch → episode all share screen names, so each frame snapshots its subject too. */
-data class Frame(val screen: Screen, val detail: Int, val ep: Int, val tag: String, val acc: String)
+data class Frame(val screen: Screen, val detail: String, val ep: Int, val tag: String, val acc: String, val zoomUrl: String?)
 
 data class Confirm(val title: String, val body: String, val cta: String, val act: () -> Unit)
 
@@ -73,12 +77,26 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var library by mutableStateOf(Library()); private set
     var conn by mutableStateOf(Conn.Wifi); private set
 
+    // Content, read from the device — everything below works offline.
+    /** Every sketch, newest first. */
+    var sketches by mutableStateOf(emptyList<SketchSummary>()); private set
+    var byUid by mutableStateOf(emptyMap<String, SketchSummary>()); private set
+    /** Topics with sketch counts, most used first. */
+    var topics by mutableStateOf(emptyList<TopicCount>()); private set
+    /** Podcast episodes, newest first. */
+    var episodes by mutableStateOf(emptyList<Episode>()); private set
+    /** Bumped whenever stored content changes, so screens reload. */
+    var contentVersion by mutableIntStateOf(0); private set
+
     // Navigation
     var screen by mutableStateOf(Screen.Today); private set
     var stack by mutableStateOf(emptyList<Frame>()); private set
-    var detail by mutableIntStateOf(589); private set
+    /** The open sketch's uid. */
+    var detail by mutableStateOf(""); private set
+    /** Index into [episodes]. */
     var ep by mutableIntStateOf(0); private set
-    var tag by mutableStateOf("Thinking"); private set
+    /** Topic uid. */
+    var tag by mutableStateOf(""); private set
     var acc by mutableStateOf("what")
     var drawer by mutableStateOf(false)
     /** Bumped when a re-tapped tab asks the current list to scroll home. */
@@ -88,6 +106,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var ob by mutableIntStateOf(0)
     var syncState by mutableStateOf(SyncState.Idle); private set
     var syncN by mutableIntStateOf(0); private set
+    /** Sketches the catalogue fetch expects, as the site reports it. */
+    var syncTotal by mutableIntStateOf(0); private set
 
     // Per-view modes, reset on entry
     var sort by mutableStateOf(Sort.Date)
@@ -97,37 +117,36 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var libFavTab by mutableStateOf(true)
     var podFavTab by mutableStateOf(true)
     var deckIdx by mutableIntStateOf(0)
+    /** Position in publication order, 0 = the first sketch. */
     var browseIdx by mutableIntStateOf(0)
 
     // Search
     var q by mutableStateOf(""); private set
     var phase by mutableStateOf(SearchPhase.Idle); private set
-    var searchMsg by mutableStateOf(Catalogue.searchMessages[0]); private set
+    var searchMsg by mutableStateOf(SearchMessages.all[0]); private set
+    var results by mutableStateOf(emptyList<String>()); private set
 
     // Downloads — progress lives inside the button that started it
-    var dl by mutableStateOf<Int?>(null); private set
+    var dl by mutableStateOf<String?>(null); private set
     var pct by mutableIntStateOf(0); private set
-    var epDl by mutableStateOf<Int?>(null); private set
+    var epDl by mutableStateOf<String?>(null); private set
     var epPct by mutableIntStateOf(0); private set
     var bulkSketches by mutableStateOf<Int?>(null); private set
     var bulkEpisodes by mutableStateOf<Int?>(null); private set
     var syncPct by mutableStateOf<Int?>(null); private set
-    /** Sketches the catalogue fetch expects, as the site reports it. */
-    var syncTotal by mutableIntStateOf(0); private set
-    /** Bumped whenever stored content changes, so screens reload. */
-    var contentVersion by mutableIntStateOf(0); private set
     var pulse by mutableStateOf<Pair<String, String>?>(null); private set
     /** "Load image" reveals for this session only — never the download cache. */
-    var revealed by mutableStateOf(emptySet<Int>()); private set
+    var revealed by mutableStateOf(emptySet<String>()); private set
 
     // Player
     var playing by mutableStateOf(false); private set
     var audioEp by mutableIntStateOf(0); private set
-    var pos by mutableFloatStateOf(0.32f); private set
+    var pos by mutableFloatStateOf(0f); private set
     var sleepEndsAt by mutableStateOf<Long?>(null); private set
 
     // Transient UI
-    var zoom by mutableStateOf(false)
+    /** The image open in the zoom viewer, or null. */
+    var zoomUrl by mutableStateOf<String?>(null)
     var toast by mutableStateOf<String?>(null); private set
     var confirm by mutableStateOf<Confirm?>(null)
     var egg by mutableStateOf(false)
@@ -150,12 +169,13 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             val (s, l) = store.load()
             settings = s
             library = l
+            reloadContent()
+            library = library.copy(indexBuilt = sketches.isNotEmpty())
             if (!l.onboarded) screen = Screen.Onboarding
             loaded = true
             launch { snapshotFlow { settings }.drop(1).collect { store.save(it) } }
             launch { snapshotFlow { library }.drop(1).collect { store.save(it) } }
             // The incremental catalogue check also runs on launch when online.
-            library = library.copy(indexBuilt = repo.sketchCount() > 0)
             delay(1500)
             if (online && library.indexBuilt) syncWithWebsite(quiet = true)
         }
@@ -168,18 +188,37 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 when {
                     was == Conn.Off && c != Conn.Off ->
                         flash(if (screen == Screen.Detail || screen == Screen.Browse) "Back online — tap to load this sketch" else "Back online")
-                    c == Conn.Off -> flash("Offline. Downloaded sketches still open.")
+                    c == Conn.Off -> flash("Offline. Everything stored on the phone still opens.")
                     else -> flash(if (c == Conn.Wifi) "On Wi-Fi" else "On mobile data")
                 }
             }
         }
     }
 
+    /**
+     * Sketches and topics come first, since every opening screen needs them. The podcast feed is
+     * parsed afterwards so it never holds up the first frame.
+     */
+    private suspend fun reloadContent() {
+        val all = repo.summaries()
+        sketches = all
+        byUid = all.associateBy { it.uid }
+        topics = repo.topics()
+        if (detail.isEmpty()) detail = all.firstOrNull()?.uid.orEmpty()
+        contentVersion++
+        viewModelScope.launch {
+            episodes = repo.podcast()?.episodes.orEmpty()
+            ep = ep.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
+            audioEp = audioEp.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
+        }
+    }
+
     // ---- helpers -------------------------------------------------------------------------
 
     val online get() = conn != Conn.Off
-    val sketch: Sketch get() = Catalogue.sketch(detail) ?: Catalogue.sketches[0]
-    val episode get() = Catalogue.episodes[ep]
+    val sketch: SketchSummary? get() = byUid[detail]
+    val episode: Episode? get() = episodes.getOrNull(ep)
+    fun topicName(uid: String) = topics.firstOrNull { it.uid == uid }?.name ?: uid.replace('-', ' ')
 
     fun updateSettings(f: AppSettings.() -> AppSettings) { settings = settings.f() }
     private fun updateLibrary(f: Library.() -> Library) { library = library.f() }
@@ -199,18 +238,18 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun pulseFor(k: String) = pulse?.takeIf { it.first == k }?.second
 
-    fun isOffline(n: Int) = n in library.offline
-    fun isFavourite(n: Int) = n in library.favourites
-    fun inGallery(n: Int) = n in library.gallery
+    fun isOffline(uid: String) = uid in library.offline
+    fun isFavourite(uid: String) = uid in library.favourites
+    fun inGallery(uid: String) = uid in library.gallery
 
     /** Offline and not downloaded: nothing on the device to show. */
-    fun needsNet(n: Int) = !isOffline(n) && !online
+    fun needsNet(uid: String) = !isOffline(uid) && !online
     /** On mobile data with Images on Wi-Fi only: the image waits behind Load image. */
-    fun imageHeld(n: Int) = !isOffline(n) && conn == Conn.Mobile && settings.imgWifiOnly && n !in revealed
+    fun imageHeld(uid: String) = !isOffline(uid) && conn == Conn.Mobile && settings.imgWifiOnly && uid !in revealed
 
     // ---- navigation ----------------------------------------------------------------------
 
-    private fun frame() = Frame(screen, detail, ep, tag, acc)
+    private fun frame() = Frame(screen, detail, ep, tag, acc, zoomUrl)
 
     /** Every view resets to its default on entry — no screen remembers a filter set three taps ago. */
     private fun applyDefaults(s: Screen) {
@@ -219,8 +258,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             Screen.Archive -> { filter = Filter.All; sort = Sort.Date; asc = false }
             Screen.Library -> libFavTab = true
             Screen.PodLibrary -> podFavTab = true
-            Screen.Search -> { searchJob?.cancel(); q = ""; phase = SearchPhase.Idle }
+            Screen.Search -> { searchJob?.cancel(); q = ""; phase = SearchPhase.Idle; results = emptyList() }
             Screen.About -> acc = "what"
+            Screen.Browse -> browseIdx = (sketches.size - 1).coerceAtLeast(0)
             else -> {}
         }
     }
@@ -235,7 +275,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         }
         screen = s
         drawer = false
-        zoom = false
+        zoomUrl = null
         if (leaving == Screen.Episode && s != Screen.Episode && playing && settings.stopOnLeave) pause()
     }
 
@@ -251,19 +291,21 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         extra()
     }
 
-    fun open(n: Int) {
+    fun open(uid: String) {
+        if (uid !in byUid) { openUrl("https://sketchplanations.com/$uid"); return }
         moveTo(Screen.Detail, push = true)
-        detail = n
+        detail = uid
     }
 
     fun openEp(i: Int) {
+        if (episodes.isEmpty()) return
         moveTo(Screen.Episode, push = true)
-        ep = i.coerceIn(0, Catalogue.episodes.lastIndex)
+        ep = i.coerceIn(0, episodes.lastIndex)
     }
 
-    fun openTag(t: String) {
+    fun openTag(uid: String) {
         moveTo(Screen.Tag, push = true)
-        tag = t
+        tag = uid
     }
 
     fun openAboutHosts() = goDeep(Screen.About) { acc = "hosts" }
@@ -272,7 +314,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /** Pops one level, to exactly the previous item — not just the previous screen type. */
     fun back() {
-        zoom = false
+        zoomUrl = null
         val e = stack.lastOrNull()
         if (e == null) { go(Screen.Today); return }
         val leaving = screen
@@ -287,22 +329,28 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun shuffle() {
-        val s = Catalogue.sketches.random()
-        open(s.n)
+        val s = sketches.randomOrNull() ?: return flash("Nothing stored yet — sync first")
+        open(s.uid)
         flash("A random one: ${s.title}")
     }
 
-    /** Inline links to other sketches and episodes open in the app; everything else leaves it. */
-    fun follow(link: SketchLink?, label: String) {
-        when {
-            link == null -> flash("Could not open $label")
-            link.sketchRef != null -> {
-                val n = link.sketchRef!!
-                if (Catalogue.sketch(n) != null) open(n) else flash("Could not open $label")
-            }
-            link.episodeRef != null -> openEp(Catalogue.episodeIndex(link.episodeRef!!).coerceAtLeast(0))
-            else -> openUrl(link.href)
+    /** Links to other sketches, topics and episodes open in the app; everything else leaves it. */
+    fun follow(link: Link) {
+        when (val t = link.target) {
+            is LinkTarget.Sketch -> open(t.uid)
+            is LinkTarget.Topic -> if (topics.any { it.uid == t.uid }) openTag(t.uid) else openUrl("https://sketchplanations.com/categories/${t.uid}")
+            is LinkTarget.Episode -> episodeFor(t.url)?.let(::openEp) ?: openUrl(t.url)
+            is LinkTarget.ImageVersion -> zoomUrl = t.url
+            is LinkTarget.External -> openUrl(t.url)
         }
+    }
+
+    /** Podcast-site URLs carry the episode's title as a slug; failing that, the episode about this sketch. */
+    private fun episodeFor(url: String): Int? {
+        val slug = runCatching { URI(url).path.trim('/') }.getOrNull().orEmpty()
+        fun slugOf(t: String) = t.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        return episodes.indexOfFirst { slug.isNotEmpty() && slugOf(it.title) == slug }.takeIf { it >= 0 }
+            ?: episodes.indexOfFirst { it.sketchUid == detail }.takeIf { it >= 0 }
     }
 
     fun openUrl(url: String) {
@@ -315,7 +363,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun nextOnboarding() {
         if (ob < 3) {
-            if (ob == 2) startSync()
+            if (ob == 2 && sketches.isEmpty()) startSync()
+            if (ob == 2 && sketches.isNotEmpty()) syncState = SyncState.Done
             ob++
             return
         }
@@ -334,7 +383,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun askSkipIndex() = ask(Confirm(
         "Skip building the index?",
-        "Archive, Topics and A–Z stay empty until it runs. Today, Browse and Search still work while you are online, and Archive will offer to build it again.",
+        "Today, Archive, Topics and Search stay empty until it runs. Archive will offer to build it again whenever you're online.",
         "Skip it",
     ) {
         syncJob?.cancel()
@@ -351,10 +400,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         syncJob = viewModelScope.launch {
             when (repo.sync { done, total -> syncN = done; syncTotal = total }) {
                 is SyncResult.Done -> {
+                    reloadContent()
                     syncState = SyncState.Done
-                    syncN = repo.sketchCount(); syncTotal = syncN
+                    syncN = sketches.size; syncTotal = syncN
                     updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
-                    contentVersion++
                 }
                 SyncResult.Offline -> { syncState = SyncState.Failed; syncN = 0 }
                 is SyncResult.Failed -> { syncState = SyncState.Failed; syncN = 0 }
@@ -375,9 +424,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             syncPct = null
             when (result) {
                 is SyncResult.Done -> {
+                    reloadContent()
                     updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
                     if (syncState != SyncState.Running) syncState = SyncState.Done
-                    contentVersion++
                     if (!quiet) pulse("sync", if (result.changed == 0) "Up to date" else "${result.changed} updated")
                     else if (result.changed > 0) flash(if (result.changed == 1) "1 sketch new or updated" else "${result.changed} sketches new or updated")
                 }
@@ -391,24 +440,36 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Debounced: the field updates instantly, but the loading message only appears once
-     * typing has actually stopped — so it never flickers per keystroke.
+     * typing has actually stopped — so it never flickers per keystroke. Searches the words
+     * stored on the device, so it works offline.
      */
     fun runSearch(text: String) {
         searchJob?.cancel()
         q = text
-        if (text.isBlank()) { phase = SearchPhase.Idle; return }
+        if (text.isBlank()) { phase = SearchPhase.Idle; results = emptyList(); return }
         phase = SearchPhase.Typing
         searchJob = viewModelScope.launch {
             delay(340)
-            searchMsg = Catalogue.searchMessages.random()
+            searchMsg = SearchMessages.all.random()
             phase = SearchPhase.Searching
-            delay(760)
+            val found = searchLocally(text)
+            delay(500)
+            results = found
             phase = SearchPhase.Done
             if (settings.showRecents) {
                 val t = q.trim()
                 updateLibrary { copy(recents = (listOf(t) + recents.filter { !it.equals(t, ignoreCase = true) }).take(6)) }
             }
         }
+    }
+
+    /** "589" or "#589" jumps to that number; anything else is a text search. */
+    private suspend fun searchLocally(text: String): List<String> {
+        Regex("^#?(\\d+)$").find(text.trim())?.let { m ->
+            val n = m.groupValues[1].toInt()
+            return sketches.filter { it.ordinal == n }.map { it.uid }
+        }
+        return repo.search(text)
     }
 
     fun clearRecents() { updateLibrary { copy(recents = emptyList()) }; flash("Recent searches cleared") }
@@ -421,15 +482,15 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         return false
     }
 
-    fun toggleDownload(n: Int) {
-        if (isOffline(n)) {
-            updateLibrary { copy(offline = offline - n) }
+    fun toggleDownload(uid: String) {
+        if (isOffline(uid)) {
+            updateLibrary { copy(offline = offline - uid) }
             flash("Removed from offline")
             return
         }
-        if (dl == n || downloadBlocked()) return
+        if (dl == uid || downloadBlocked()) return
         dlJob?.cancel()
-        dl = n; pct = 0
+        dl = uid; pct = 0
         val from = System.currentTimeMillis()
         dlJob = viewModelScope.launch {
             while (true) {
@@ -439,60 +500,62 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 delay(60)
             }
             dl = null
-            updateLibrary { if (n in offline) this else copy(offline = offline + n) }
+            updateLibrary { if (uid in offline) this else copy(offline = offline + uid) }
             pulse("dl", "Downloaded")
         }
     }
 
-    fun toggleFavourite(n: Int) {
-        val was = isFavourite(n)
-        updateLibrary { copy(favourites = if (was) favourites - n else favourites + n) }
+    fun toggleFavourite(uid: String) {
+        val was = isFavourite(uid)
+        updateLibrary { copy(favourites = if (was) favourites - uid else favourites + uid) }
         pulse("fav", if (was) "Removed" else "Favourited")
     }
 
-    fun toggleGallery(n: Int) {
-        val was = inGallery(n)
-        updateLibrary { copy(gallery = if (was) gallery - n else gallery + n) }
+    fun toggleGallery(uid: String) {
+        val was = inGallery(uid)
+        updateLibrary { copy(gallery = if (was) gallery - uid else gallery + uid) }
         pulse("gal", if (was) "Removed" else "Saved to gallery")
     }
 
-    fun share(s: Sketch) {
-        effectChannel.trySend(Effect.Share(Catalogue.credit(s)))
+    /** Shares carry the credit in the wording the licence page asks for, with the sketch's address. */
+    fun share(s: SketchSummary) {
+        effectChannel.trySend(Effect.Share("${s.title}\nImage: Jono Hey, Sketchplanations — https://sketchplanations.com/${s.uid}"))
         pulse("share", "Credit attached")
     }
 
-    fun retryFetch(n: Int) {
-        if (online) toggleDownload(n) else flash("Still offline — connect to download this one")
+    fun retryFetch(uid: String) {
+        if (online) toggleDownload(uid) else flash("Still offline — connect to download this one")
     }
 
-    fun reveal(n: Int) {
-        revealed = revealed + n
+    fun reveal(uid: String) {
+        revealed = revealed + uid
         flash("Loaded over mobile data")
     }
 
-    fun removeFavourite(n: Int) { updateLibrary { copy(favourites = favourites - n) }; flash("Removed from favourites") }
-    fun removeOffline(n: Int) { updateLibrary { copy(offline = offline - n) }; flash("Offline copy deleted") }
+    fun removeFavourite(uid: String) { updateLibrary { copy(favourites = favourites - uid) }; flash("Removed from favourites") }
+    fun removeOffline(uid: String) { updateLibrary { copy(offline = offline - uid) }; flash("Offline copy deleted") }
 
     // ---- podcast -------------------------------------------------------------------------
 
-    fun isEpOffline(num: Int) = num in library.epOffline
-    fun isEpFav(num: Int) = num in library.epFav
+    fun isEpOffline(guid: String) = guid in library.epOffline
+    fun isEpFav(guid: String) = guid in library.epFav
+    fun seconds(e: Episode) = e.durationSeconds ?: 45 * 60
 
-    fun toggleEpFav(num: Int) {
-        val was = isEpFav(num)
-        updateLibrary { copy(epFav = if (was) epFav - num else epFav + num) }
+    fun toggleEpFav(guid: String) {
+        val was = isEpFav(guid)
+        updateLibrary { copy(epFav = if (was) epFav - guid else epFav + guid) }
         flash(if (was) "Removed from favourites" else "Added to favourites")
     }
 
-    fun toggleEpDownload(num: Int) {
-        if (isEpOffline(num)) {
-            updateLibrary { copy(epOffline = epOffline - num) }
+    fun toggleEpDownload(guid: String) {
+        if (isEpOffline(guid)) {
+            updateLibrary { copy(epOffline = epOffline - guid) }
             flash("Episode removed")
             return
         }
-        if (epDl == num || downloadBlocked()) return
+        if (epDl == guid || downloadBlocked()) return
         epDlJob?.cancel()
-        epDl = num; epPct = 0
+        epDl = guid; epPct = 0
         val from = System.currentTimeMillis()
         epDlJob = viewModelScope.launch {
             while (true) {
@@ -502,26 +565,27 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 delay(60)
             }
             epDl = null
-            updateLibrary { if (num in epOffline) this else copy(epOffline = epOffline + num) }
+            updateLibrary { if (guid in epOffline) this else copy(epOffline = epOffline + guid) }
             pulse("epdl", "Downloaded")
         }
     }
 
-    fun removeEpFav(num: Int) { updateLibrary { copy(epFav = epFav - num) }; flash("Removed from favourites") }
-    fun removeEpOffline(num: Int) { updateLibrary { copy(epOffline = epOffline - num) }; flash("Episode deleted") }
+    fun removeEpFav(guid: String) { updateLibrary { copy(epFav = epFav - guid) }; flash("Removed from favourites") }
+    fun removeEpOffline(guid: String) { updateLibrary { copy(epOffline = epOffline - guid) }; flash("Episode deleted") }
 
     /** Position shown for an episode: live for the one in the player, the start for any other. */
     fun posFor(i: Int) = if (i == audioEp) pos else 0f
 
     fun togglePlay(i: Int = ep) {
-        val e = Catalogue.episodes[i]
+        val e = episodes.getOrNull(i) ?: return
         if (playing && i == audioEp) { pause(); return }
-        if (!isEpOffline(e.num) && !online) { flash("Offline — download this episode to listen"); return }
+        if (!isEpOffline(e.guid) && !online) { flash("Offline — download this episode to listen"); return }
         if (i != audioEp) { audioEp = i; pos = 0f }
         play()
     }
 
     fun playLatest() {
+        if (episodes.isEmpty()) return flash("No episodes stored yet — sync first")
         openEp(0)
         if (!(playing && audioEp == 0)) togglePlay(0)
     }
@@ -535,8 +599,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             while (isActive) {
                 delay(250)
                 val now = System.currentTimeMillis()
-                val e = Catalogue.episodes[audioEp]
-                pos = (pos + (now - last) / 1000f * settings.speed / e.seconds).coerceAtMost(1f)
+                val e = episodes.getOrNull(audioEp) ?: return@launch pause()
+                pos = (pos + (now - last) / 1000f * settings.speed / seconds(e)).coerceAtMost(1f)
                 last = now
                 sleepEndsAt?.let { if (now >= it) { pause(); flash("Sleep timer — paused"); return@launch } }
                 if (pos >= 1f) { finished(); return@launch }
@@ -551,13 +615,14 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun finished() {
-        val e = Catalogue.episodes[audioEp]
+        val e = episodes.getOrNull(audioEp)
         pause()
-        if (settings.autoDelete && isEpOffline(e.num)) updateLibrary { copy(epOffline = epOffline - e.num) }
-        val next = audioEp + 1
-        if (settings.continuous && next <= Catalogue.episodes.lastIndex) {
+        if (e != null && settings.autoDelete && isEpOffline(e.guid)) updateLibrary { copy(epOffline = epOffline - e.guid) }
+        // Newest first, so the next episode in order is the one before it in the list.
+        val next = audioEp - 1
+        if (settings.continuous && next >= 0) {
             audioEp = next; pos = 0f
-            if (isEpOffline(Catalogue.episodes[next].num) || online) play()
+            if (isEpOffline(episodes[next].guid) || online) play()
         } else {
             pos = 0f
         }
@@ -568,9 +633,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         pos = fraction.coerceIn(0f, 1f)
     }
 
-    fun skip(i: Int, seconds: Int) {
-        val e = Catalogue.episodes[i]
-        seek(i, posFor(i) + seconds.toFloat() / e.seconds)
+    fun skip(i: Int, secs: Int) {
+        val e = episodes.getOrNull(i) ?: return
+        seek(i, posFor(i) + secs.toFloat() / seconds(e))
     }
 
     fun cycleSpeed() {
@@ -585,46 +650,48 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     // ---- settings › storage --------------------------------------------------------------
 
-    val mbSketch get() = if (settings.hd) 0.35 else 0.15
-    val mbEp = 31.5
-    val mbBase = 4.1
+    /** Measured from the first scrape: ~82 KB per sketch at reading size, ~205 KB in HD. */
+    val mbSketch get() = if (settings.hd) 0.29 else 0.09
+    val mbBase = 7.5
+    fun epMB(e: Episode) = (e.audioBytes ?: 31_500_000L) / 1e6
     val sketchMB get() = library.offline.size * mbSketch
-    val podMB get() = library.epOffline.size * mbEp
+    val podMB get() = episodes.filter { it.guid in library.epOffline }.sumOf(::epMB)
     val libMB get() = mbBase + sketchMB + podMB
 
-    fun askBulk(sketches: Boolean) {
+    fun askBulk(all: Boolean) {
         if (!online) return flash("Offline — connect to download")
-        ask(if (sketches) Confirm(
+        val allEpisodesMB = episodes.sumOf(::epMB)
+        ask(if (all) Confirm(
             "Download every sketch?",
-            "About ${(Catalogue.TOTAL_POSTS * mbSketch).roundToInt()} MB for all ${Catalogue.TOTAL_POSTS} posts. Runs on Wi-Fi only and pauses if you leave.",
+            "About ${(sketches.size * mbSketch).roundToInt()} MB for all ${sketches.size} sketches. Runs on Wi-Fi only and pauses if you leave.",
             "Download all",
         ) { bulk(true) } else Confirm(
             "Download every episode?",
-            "About 1.8 GB for ${Catalogue.TOTAL_EPISODES} episodes — roughly twelve times the whole sketch archive. Wi-Fi only, and it will take a while.",
+            "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes — far more than the whole sketch archive. Wi-Fi only, and it will take a while.",
             "Download anyway",
         ) { bulk(false) })
     }
 
-    private fun bulk(sketches: Boolean) {
+    private fun bulk(all: Boolean) {
         if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi — bulk downloads never use mobile data")
         if (bulkJob?.isActive == true) return flash("A download is already running")
         bulkJob = viewModelScope.launch {
             val from = System.currentTimeMillis()
-            val span = if (sketches) 3000f else 5000f
+            val span = if (all) 3000f else 5000f
             while (true) {
                 val p = ((System.currentTimeMillis() - from) / span * 100).roundToInt().coerceAtMost(100)
-                if (sketches) bulkSketches = p else bulkEpisodes = p
+                if (all) bulkSketches = p else bulkEpisodes = p
                 if (p >= 100) break
                 if (conn != Conn.Wifi) { bulkSketches = null; bulkEpisodes = null; flash("Paused — off Wi-Fi"); return@launch }
                 delay(60)
             }
-            if (sketches) {
+            if (all) {
                 bulkSketches = null
-                updateLibrary { copy(offline = (offline + Catalogue.sketches.map { it.n }).distinct()) }
+                updateLibrary { copy(offline = (offline + sketches.map { it.uid }).distinct()) }
                 pulse("bulkS", "Downloaded")
             } else {
                 bulkEpisodes = null
-                updateLibrary { copy(epOffline = (epOffline + Catalogue.episodes.map { it.num }).distinct()) }
+                updateLibrary { copy(epOffline = (epOffline + episodes.map { it.guid }).distinct()) }
                 pulse("bulkE", "Downloaded")
             }
         }

@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.components.ArtBlock
@@ -222,7 +221,7 @@ fun PrintsScreen(m: AppModel) {
 
             T("Free, and still worth a lot", sans(21, 800, 1.3f), Modifier.padding(bottom = 8.dp))
             T("passing one on is the oldest kind of support ✎", hand(18, 1.4f), Modifier.padding(bottom = 14.dp), Sk.colors.textSecondary)
-            CardPill("Send a sketch to someone", { m.share(Catalogue.byDate[0]) }, trailing = Lucide.Share, size = 15, trailingSize = 16.dp)
+            CardPill("Send a sketch to someone", { m.sketches.firstOrNull()?.let(m::share) }, trailing = Lucide.Share, size = 15, trailingSize = 16.dp)
             Spacer(Modifier.height(22.dp))
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Sk.colors.borderQuiet, RoundedCornerShape(14.dp)).padding(horizontal = 15.dp, vertical = 13.dp)) {
                 val note = buildAnnotatedString {
