@@ -203,7 +203,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         val all = repo.summaries()
         sketches = all
         byUid = all.associateBy { it.uid }
-        topics = repo.topics()
+        // The site writes topic names in lower case; the app shows them capitalised.
+        topics = repo.topics().map { t -> t.copy(name = t.name.replaceFirstChar { it.titlecase() }) }
         if (detail.isEmpty()) detail = all.firstOrNull()?.uid.orEmpty()
         contentVersion++
         viewModelScope.launch {
