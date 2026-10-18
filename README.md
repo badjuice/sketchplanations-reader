@@ -32,3 +32,21 @@ Stand-ins, carried over from the prototype: the catalogue (24 sketches, 5 episod
 cream placeholder blocks; downloads, catalogue sync and playback are simulated timers — there is no network
 client or audio yet. The data source is the site's public Prismic CMS plus the Acast RSS feed; see
 `SketchplanationsExplode.md` in the design project before writing that layer.
+
+## Licences
+
+**App code:** GPL-3.0-only, see `LICENSE`. Copyright © 2026 Nox Fortes.
+
+**Fonts:** SIL Open Font License 1.1, texts in `licenses/fonts/`.
+
+**Content is not part of this program and is not covered by the GPL.**
+- Sketches and their words are © Jono Hey under
+  [CC BY-NC 4.0](https://sketchplanations.com/licence). The app may show, cache and share them as long as it
+  credits the author and is never sold or monetised (no paid tier, no ads). The credit line the site asks for is
+  `Image: Jono Hey, Sketchplanations` plus a link to the sketch's page. The author also asks that the
+  Sketchplanations logo is not removed from the sketches, so full views must show the uncropped image.
+- The podcast (audio and show notes) carries no open licence: "© Sketchplanations - The Podcast". The app
+  streams and downloads episodes from the public feed the way any podcast player does, but must not re-host or
+  redistribute them.
+- Never commit scraped or downloaded content to this repository. Content is fetched into the app (or a local
+  cache) at run time, so the GPL code and the CC BY-NC content stay separate works.
