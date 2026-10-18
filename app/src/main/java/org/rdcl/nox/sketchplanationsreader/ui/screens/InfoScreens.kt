@@ -60,7 +60,8 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 
 private class Section(val key: String, val title: String, val paras: List<String>, val links: List<Pair<String, String>>)
 
-private const val REPORT = "https://forms.gle/c6LymLW5vLx9FUeW6"
+private const val REPO = "https://github.com/badjuice/sketchplanations-reader"
+private const val REPORT = "$REPO/issues"
 
 /** All credits, one place. The podcast hosts are credited once — here. */
 private val sections = listOf(
@@ -82,17 +83,18 @@ private val sections = listOf(
         "All three make the show independently of this app."),
         listOf("The podcast" to "https://podcast.sketchplanations.com", "Follow the show" to "https://podcast.sketchplanations.com/follow/")),
     Section("app", "Who made this app", listOf(
-        "Built and maintained independently, mostly for personal use on the train. Not a company, not a product, no analytics, no account.",
+        "Built and maintained by Nox Fortes, independently. Not a company, not a product, no analytics, no account.",
         "If something in the app is broken it is the app’s to fix. If a sketch is wrong, that is one for the website."),
-        listOf("Report an app problem" to REPORT)),
+        listOf("Report an app problem" to REPORT, "App source" to REPO)),
     Section("support", "Supporting the work", listOf(
         "If the sketches are useful to you, support them at the source — a paid Substack subscription, a coffee, the Redbubble shop or the book. Nothing you spend there passes through this app, and this app takes nothing."),
         emptyList()),
     Section("credits", "Credits & licence", listOf(
         "Sketches and words are Creative Commons BY-NC 4.0. Anything you share or save from this app carries its credit line — Jono Hey, plus the address of that sketch on the site — because the licence asks for it.",
         "Sketches, words and podcast © Jono Hey and the show’s hosts, used as published.",
-        "App shell open source. Interface debt owed to the xkcd Android reader by zjn0505."),
-        listOf("Licence" to "https://sketchplanations.com/licence")),
+        "The app’s own code is free software under the GPL-3.0. Interface debt owed to the xkcd Android reader by zjn0505.",
+        "Typefaces: Nunito, Patrick Hand, Space Mono, Lora and Karla, all under the SIL Open Font License."),
+        listOf("Sketch licence (CC BY-NC 4.0)" to "https://sketchplanations.com/licence", "App licence (GPL-3.0)" to "$REPO/blob/main/LICENSE")),
 )
 
 @Composable

@@ -144,6 +144,9 @@ object Catalogue {
 
     fun slugOf(t: String) = t.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
 
-    /** The credit line the CC BY-NC licence asks for on every share and saved image. */
-    fun credit(s: Sketch) = "${s.title} — by Jono Hey, sketchplanations.com/${slugOf(s.title)} (CC BY-NC 4.0)"
+    /**
+     * The credit the CC BY-NC licence asks for on every share and saved image, in the wording the
+     * site's licence page requests. The slug is derived from the title until real Prismic UIDs land.
+     */
+    fun credit(s: Sketch) = "${s.title}\nImage: Jono Hey, Sketchplanations — https://sketchplanations.com/${slugOf(s.title)}"
 }
