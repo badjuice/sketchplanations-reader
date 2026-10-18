@@ -4,7 +4,14 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 [Semantic Versioning](https://semver.org). 0.1.0 was the interactive prototype in Claude Design;
 0.2.0 is the first native build.
 
-## 0.4.0 — 2026-10-18
+## Unreleased
+
+### Documentation
+
+- Add the logo (78d542f)
+- Plain wording without em dashes (ff3c2b4)
+
+## 0.4.0 (2026-10-18)
 
 ### Added
 
@@ -20,7 +27,7 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 
 - Per-architecture release APKs and a private release key (6ee2d55)
 
-## 0.3.0 — 2026-10-18
+## 0.3.0 (2026-10-18)
 
 ### Added
 
@@ -44,7 +51,7 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 - Name the exact commit in debug version names (3e3f320)
 - Include SketchplanationsExplode as a submodule (628369e)
 
-## 0.2.0 — 2026-10-18
+## 0.2.0 (2026-10-18)
 
 ### Added
 
