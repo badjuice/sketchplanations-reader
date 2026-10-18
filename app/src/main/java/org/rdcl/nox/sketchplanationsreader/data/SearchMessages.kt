@@ -11,6 +11,6 @@ object SearchMessages {
         "Ze little grey cells are working on it, mon ami…", "This sketch ain't going to find itself…",
         "The streets are mean, but I'll find your sketch…", "The game is afoot, we'll have it soon, Watson…",
         "It's elementary, the sketch can't hide…", "Ah, the case of the missing sketch…",
-        "My pipe, Watson, this search may take a moment…", "No time for half measures, Watson, they need that sketch…",
+        "My pipe Watson—this search may take a moment…", "No time for half measures, Watson, they need that sketch…",
     )
 }
