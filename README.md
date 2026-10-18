@@ -11,6 +11,24 @@ Design System).
 
 Needs JDK 17+ and the Android SDK (compileSdk 34, minSdk 26).
 
+## Requirements
+
+- **Works fully offline.** Everything downloaded (sketch images and words, podcast episodes, favourites, the
+  catalogue index, settings) opens with no connection. Nothing on launch or navigation may block on the
+  network. Telling the user they are offline is optional; when something genuinely needs the network (an
+  undownloaded sketch, a stream), say so and offer the fix instead of failing silently.
+- Phone first, tablet layout included. iOS is out of scope for now.
+
+## Releasing
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `refactor:`,
+`docs:`, `chore:`, `build:`). To cut a release, bump `versionName`/`versionCode` in `app/build.gradle.kts`, then:
+
+```
+npx git-cliff@2.6.1 --tag vX.Y.Z -o CHANGELOG.md
+git commit -am "chore(release): X.Y.Z" && git tag -a vX.Y.Z -m "X.Y.Z"
+```
+
 ## Layout
 
 | Path | What |
