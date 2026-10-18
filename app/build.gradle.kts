@@ -12,8 +12,8 @@ android {
         applicationId = "org.rdcl.nox.sketchplanationsreader"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {

@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.rdcl.nox.sketchplanationsreader.BuildConfig
 import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
@@ -261,7 +262,7 @@ private fun DrawerFoot(dark: Boolean, onToggleTheme: () -> Unit) {
     Column {
         Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            T("v1.0.0", mono(13), color = Sk.colors.textTertiary)
+            T("v${BuildConfig.VERSION_NAME}", mono(13), color = Sk.colors.textTertiary)
             Chip(if (dark) "Light" else "Dark", onToggleTheme, height = 36.dp, hPad = 14.dp, style = sans(13, 600), leading = if (dark) Lucide.Sun else Lucide.Moon)
         }
     }
