@@ -20,6 +20,8 @@ data class AppSettings(
     val bigText: Boolean = false,
     val reduceMotion: Boolean = false,
     val homeLayout: HomeLayout = HomeLayout.Deck,
+    /** Thumbnails letterbox the whole sketch instead of cropping it. */
+    val thumbWhole: Boolean = false,
     val extBrowser: Boolean = false,
     val linkStyle: LinkStyle = LinkStyle.Badge,
     val railLetters: Boolean = true,
@@ -90,6 +92,7 @@ class Store(private val context: Context) {
     private fun encode(s: AppSettings) = JSONObject().apply {
         s.dark?.let { put("dark", it) }
         put("bigText", s.bigText); put("reduceMotion", s.reduceMotion); put("homeLayout", s.homeLayout.name)
+        put("thumbWhole", s.thumbWhole)
         put("extBrowser", s.extBrowser); put("linkStyle", s.linkStyle.name)
         put("railLetters", s.railLetters); put("railYears", s.railYears); put("railAll", s.railAll)
         put("showRecents", s.showRecents); put("autoDl", s.autoDl); put("wifiOnly", s.wifiOnly); put("hd", s.hd)
@@ -109,6 +112,7 @@ class Store(private val context: Context) {
             dark = if (o.has("dark")) o.getBoolean("dark") else null,
             bigText = b("bigText", d.bigText), reduceMotion = b("reduceMotion", d.reduceMotion),
             homeLayout = runCatching { HomeLayout.valueOf(o.getString("homeLayout")) }.getOrDefault(d.homeLayout),
+            thumbWhole = b("thumbWhole", d.thumbWhole),
             extBrowser = b("extBrowser", d.extBrowser),
             linkStyle = runCatching { LinkStyle.valueOf(o.getString("linkStyle")) }.getOrDefault(d.linkStyle),
             railLetters = b("railLetters", d.railLetters), railYears = b("railYears", d.railYears), railAll = b("railAll", d.railAll),

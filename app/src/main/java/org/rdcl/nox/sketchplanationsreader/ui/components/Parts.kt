@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,6 +80,12 @@ val Pill = RoundedCornerShape(9999.dp)
 
 /** Phone vs tablet. Tablet pins the drawer, drops the tabs and runs lists two-up. */
 val LocalTablet = staticCompositionLocalOf { false }
+
+/**
+ * Thumbnail framing: false crops to the slot (top-anchored), true letterboxes the whole sketch so
+ * the Sketchplanations mark stays in view.
+ */
+val LocalThumbWhole = staticCompositionLocalOf { false }
 
 /** Reading measure on wide screens: prose holds ~68 characters and centres. */
 val ReadWidth = 600.dp
@@ -357,17 +364,33 @@ fun Hairline(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height
 /**
  * Sketch artwork placeholder. Always cream, always ink-lined, in both themes — artwork never
  * inverts, tints or takes a shadow of its own colour.
+ *
+ * A [framed] block is a thumbnail-like slot that follows the Thumbnails setting: cropped fills
+ * the slot, whole letterboxes the sketch on the page ground. With real images this is
+ * ContentScale.Crop + TopCenter versus ContentScale.Fit.
  */
 @Composable
-fun ArtBlock(modifier: Modifier = Modifier, radius: Dp = Radius.thumb, border: Boolean = true, caption: String? = null, content: @Composable () -> Unit = {}) {
+fun ArtBlock(
+    modifier: Modifier = Modifier,
+    radius: Dp = Radius.thumb,
+    border: Boolean = true,
+    caption: String? = null,
+    framed: Boolean = false,
+    content: @Composable () -> Unit = {},
+) {
     val shape = RoundedCornerShape(radius)
+    val whole = framed && LocalThumbWhole.current
     Box(
         modifier
             .clip(shape)
-            .background(Art.paper)
+            .background(if (whole) Art.page else Art.paper)
             .then(if (border) Modifier.border(2.dp, Art.line, shape) else Modifier),
         contentAlignment = Alignment.BottomStart,
     ) {
+        if (whole) {
+            // Placeholder sketches are 5:3, the site's usual shape.
+            Box(Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(5 / 3f).background(Art.paper))
+        }
         if (caption != null) T(caption, hand(17), Modifier.padding(12.dp), Art.caption)
         content()
     }
@@ -377,7 +400,7 @@ fun ArtBlock(modifier: Modifier = Modifier, radius: Dp = Radius.thumb, border: B
 @Composable
 fun Thumb(width: Dp, height: Dp, offline: Boolean = false, gallery: Boolean = false, hd: Boolean = true) {
     Box(Modifier.size(width, height)) {
-        ArtBlock(Modifier.fillMaxWidth().fillMaxHeight())
+        ArtBlock(Modifier.fillMaxWidth().fillMaxHeight(), framed = true)
         if (offline || gallery) {
             Row(Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (gallery) ThumbTag("IMG", Sk.colors.penGreen, Sk.colors.ink)

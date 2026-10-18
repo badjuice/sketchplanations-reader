@@ -104,7 +104,7 @@ fun TodayScreen(m: AppModel) {
             Catalogue.byDate.drop(5).take(4).forEach { s ->
                 PressRow({ m.open(s.n) }, Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ArtBlock(Modifier.size(68.dp, 54.dp))
+                        ArtBlock(Modifier.size(68.dp, 54.dp), framed = true)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             T(s.title, sans(16, 700, 1.3f), maxLines = 1)
@@ -216,7 +216,7 @@ private fun SketchCard(s: Sketch, newest: Boolean, modifier: Modifier, artHeight
             .border(2.dp, Sk.colors.borderDefault, shape)
             .clickable(src, null, role = Role.Button, onClick = onClick),
     ) {
-        ArtBlock(Modifier.fillMaxWidth().height(artHeight), radius = 0.dp, border = false, caption = caption)
+        ArtBlock(Modifier.fillMaxWidth().height(artHeight), radius = 0.dp, border = false, caption = caption, framed = true)
         Box(Modifier.fillMaxWidth().height(2.dp).background(Art.line))
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 18.dp)) {
             T("${s.num} · ${s.date}", mono(12), color = Sk.colors.textTertiary)

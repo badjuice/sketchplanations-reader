@@ -91,6 +91,7 @@ fun SettingsScreen(m: AppModel) {
             ToggleRow("Larger reading text", "Lifts sketch prose and list titles; menus stay put", s.bigText) { set { copy(bigText = !bigText) } },
             ToggleRow("Reduce motion", "Drawer appears instantly; presses stop springing", s.reduceMotion) { set { copy(reduceMotion = !reduceMotion) } },
             SegRow("Today's layout", "A swipe deck one card at a time, or a scrolling feed", listOf(HomeLayout.Deck to "Swipe deck", HomeLayout.Feed to "Feed"), s.homeLayout) { v -> set { copy(homeLayout = v) } },
+            SegRow("Thumbnails", "Whole keeps the Sketchplanations mark in view", listOf(false to "Cropped", true to "Whole sketch"), s.thumbWhole) { v -> set { copy(thumbWhole = v) } },
         )),
         SettingsGroup("Links", Lucide.Link, listOf(
             SegRow("Open external links in", "Sketch notes link out to books, papers and other sites", listOf(false to "In-app", true to "Browser"), s.extBrowser) { v -> set { copy(extBrowser = v) } },
