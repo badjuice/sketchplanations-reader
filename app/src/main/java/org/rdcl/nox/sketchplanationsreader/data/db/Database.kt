@@ -85,7 +85,11 @@ interface ContentDao {
     @Query("UPDATE sketch SET ordinal = :ordinal WHERE id = :id")
     suspend fun setOrdinal(id: String, ordinal: Int)
 
-    @Query("SELECT uid FROM sketch WHERE searchText LIKE '%' || :needle || '%' ESCAPE '\\' ORDER BY publishedAt DESC")
+    /** Title matches first, then everything else; newest first within each. */
+    @Query(
+        "SELECT uid FROM sketch WHERE searchText LIKE '%' || :needle || '%' ESCAPE '\\' " +
+            "ORDER BY CASE WHEN lower(title) LIKE '%' || :needle || '%' ESCAPE '\\' THEN 0 ELSE 1 END, publishedAt DESC",
+    )
     suspend fun search(needle: String): List<String>
 
     @Query(
