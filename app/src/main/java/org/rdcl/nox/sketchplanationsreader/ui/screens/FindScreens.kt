@@ -175,7 +175,7 @@ fun SearchScreen(m: AppModel) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 40.dp)) {
                             T("No sketches found", heading(26))
                             Spacer(Modifier.height(8.dp))
-                            T("Nothing matches “${m.q}” — yet.", sans(16, 400, 1.5f), color = Sk.colors.textSecondary)
+                            T("Nothing matches “${m.q}” yet.", sans(16, 400, 1.5f), color = Sk.colors.textSecondary)
                             Spacer(Modifier.height(22.dp))
                             PrimaryButton("Try a random sketch?", { m.shuffle() }, Modifier.fillMaxWidth(), icon = Lucide.Shuffle)
                             Spacer(Modifier.height(16.dp))
@@ -185,7 +185,7 @@ fun SearchScreen(m: AppModel) {
                                 T("Tell the author what's missing", sans(16, 700), color = Sk.colors.textLink)
                             }
                             Spacer(Modifier.height(2.dp))
-                            T("Opens Jono's suggestion form on the web — this app just points you at it.", sans(13, 400, 1.5f), Modifier.widthIn(max = 300.dp), Sk.colors.textTertiary)
+                            T("Opens Jono's suggestion form on the web. This app only links to it.", sans(13, 400, 1.5f), Modifier.widthIn(max = 300.dp), Sk.colors.textTertiary)
                         }
                     }
                 }
@@ -321,8 +321,8 @@ fun LibraryScreen(m: AppModel) {
                 if (rows.isEmpty()) {
                     EmptyState(
                         "Nothing here yet",
-                        if (m.libFavTab) "Tap Favourite on a sketch and it waits for you here. A favourite is a bookmark — nothing is stored."
-                        else "Download a sketch and it waits for you here — no signal needed.",
+                        if (m.libFavTab) "Tap Favourite on a sketch and it waits for you here. A favourite is a bookmark; nothing is downloaded."
+                        else "Download a sketch and it waits for you here, readable with no signal.",
                         "Browse the archive", { m.go(Screen.Archive) },
                     )
                 }

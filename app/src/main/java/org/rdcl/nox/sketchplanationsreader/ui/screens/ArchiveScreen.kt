@@ -269,7 +269,7 @@ private fun IndexBanner(m: AppModel) {
             Column(Modifier.padding(18.dp)) {
                 T("The index isn't built yet", sans(18, 800))
                 Spacer(Modifier.height(8.dp))
-                T("Archive and Topics need the list of every sketch before they can work. It's every sketch's words, about 6 MB, fetched once — the drawings stay on the website until you open or download one.",
+                T("Archive and Topics need the list of every sketch before they can work. That means every sketch's words, about 6 MB, fetched once. The drawings stay on the website until you open or download one.",
                     sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
                 Spacer(Modifier.height(14.dp))
                 val running = m.syncState == SyncState.Running
@@ -279,7 +279,7 @@ private fun IndexBanner(m: AppModel) {
                     progress = if (running) m.syncN / m.syncTotal.coerceAtLeast(1).toFloat() else null,
                 ) { fg ->
                     if (running) T("${m.syncN} of ${m.syncTotal}", mono(14, 700), color = Sk.colors.textPrimary)
-                    else T(if (m.syncState == SyncState.Failed && !m.online) "No connection — try again" else "Build the index", sans(15, 700), color = fg)
+                    else T(if (m.syncState == SyncState.Failed && !m.online) "No connection. Try again" else "Build the index", sans(15, 700), color = fg)
                 }
             }
         }

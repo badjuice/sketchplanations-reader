@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/logo.png" width="320" alt="Sketchplanations Reader logo"></p>
 
-# Sketchplanations — Android reader
+# Sketchplanations reader for Android
 
 An unofficial reader for [sketchplanations.com](https://sketchplanations.com) and its podcast, built in Kotlin and
 Jetpack Compose from the Claude Design handoff (`Sketchplanations App.dc.html` + the Sketchplanations Browser
@@ -20,7 +20,7 @@ git submodule and built from source; after pulling, run `git submodule update --
 
 - **Works fully offline.** Everything downloaded (sketch images and words, podcast episodes, favourites, the
   catalogue index, settings) opens with no connection. Nothing on launch or navigation may block on the
-  network. Telling the user they are offline is optional; when something genuinely needs the network (an
+  network. Telling the user they are offline is optional; when something needs the network (an
   undownloaded sketch, a stream), say so and offer the fix instead of failing silently.
 - Phone first, tablet layout included. iOS is out of scope for now.
 

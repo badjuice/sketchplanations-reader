@@ -101,7 +101,7 @@ val ReadWidth = 600.dp
 
 fun Modifier.readMeasure(tablet: Boolean) = if (tablet) this.widthIn(max = ReadWidth) else this
 
-/** A hard offset shadow, no blur — a sticker on paper. */
+/** A hard offset shadow with no blur, like a sticker on paper. */
 fun Modifier.hardShadow(offset: Dp, color: Color, shape: Shape) = drawBehind {
     if (offset > 0.dp) {
         val o = offset.toPx()
@@ -127,8 +127,8 @@ class HintState {
 val LocalHints = staticCompositionLocalOf { HintState() }
 
 /**
- * Tap runs [onClick]; holding for ~480ms shows [label] anchored directly under the button —
- * Android's standard tooltip, not a centred toast — and clears on release.
+ * Tap runs [onClick]; holding for ~480ms shows [label] anchored directly under the button
+ * (Android's standard tooltip, not a centred toast) and clears it on release.
  */
 @Composable
 fun Modifier.tapOrHold(label: String, enabled: Boolean = true, onPress: (Boolean) -> Unit = {}, onClick: () -> Unit): Modifier {
@@ -223,7 +223,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
     }
 }
 
-/** Card-coloured pill with the label left and a glyph right — used for every "go somewhere" row. */
+/** Card-coloured pill with the label left and a glyph right. Used for every "go somewhere" row. */
 @Composable
 fun CardPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, trailing: Lucide = Lucide.Chevron, size: Int = 16, trailingSize: Dp = 18.dp) {
     InkButton(
@@ -352,7 +352,7 @@ fun Eyebrow(text: String, modifier: Modifier = Modifier) {
     T(text.uppercase(), sans(12, 700, tracking = .08f), modifier, Sk.colors.textTertiary)
 }
 
-/** Yellow highlighter swipe behind Patrick Hand — never yellow type. */
+/** Yellow highlighter swipe behind Patrick Hand. The type itself is never yellow. */
 @Composable
 fun Highlighter(text: String) {
     BasicText(
@@ -371,7 +371,7 @@ fun Hairline(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height
 // ---- artwork ------------------------------------------------------------------------------
 
 /**
- * A sketch's artwork. Always on cream, always ink-lined, in both themes — artwork never inverts,
+ * A sketch's artwork. Always on cream, always ink-lined, in both themes. Artwork never inverts,
  * tints or takes a shadow of its own colour.
  *
  * With an [image], the [rendition] is fetched (or served from the disk cache when offline). A

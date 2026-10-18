@@ -59,7 +59,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 private class Step(val title: String, val body: String)
 
 private val steps = listOf(
-    Step("One idea, one sketch, every week.", "Jono Hey’s whole archive, laid out so you can actually find things. This is an unofficial reader — the sketches are his."),
+    Step("One idea, one sketch, every week.", "Jono Hey’s whole archive, laid out so you can actually find things. This is an unofficial reader; the sketches are his."),
     Step("Download post, or save the image.", "Download keeps the drawing and its words in the app for reading with no signal. Save image drops just the picture into your phone gallery."),
     Step("Favourite the ones that stick.", "A star marks what you want to come back to. Favourites and downloads are separate lists, so keeping a sketch never means storing it."),
     Step("Building your index.", "This fetches every sketch’s words once, about 6 MB, so the archive, topics and search work with no signal. The drawings stay on the website until you open or download one."),
@@ -88,7 +88,7 @@ fun OnboardingScreen(m: AppModel) {
             Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight).fillMaxWidth().readMeasure(tablet).padding(vertical = 26.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            // One persistent art stage that never unmounts between steps — only its contents fade.
+            // One persistent art stage that never unmounts between steps; only its contents fade.
             val shape = RoundedCornerShape(Radius.card)
             Box(
                 Modifier.height(230.dp).fillMaxWidth().then(if (tablet) Modifier.widthIn(max = 520.dp) else Modifier)
@@ -112,7 +112,7 @@ fun OnboardingScreen(m: AppModel) {
         }
         }
 
-        // Progress: display only — not clickable here.
+        // Progress bars are for display only and aren't clickable here.
         Row(Modifier.fillMaxWidth().readMeasure(tablet).padding(top = 12.dp, bottom = 28.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             steps.indices.forEach { i ->
                 val c by animateColorAsState(if (i <= m.ob) Sk.colors.accentAlt else Sk.colors.rule, tween(Sk.motion.fast), label = "dot")
@@ -155,7 +155,7 @@ private fun SyncStage(m: AppModel) {
         SyncState.Idle -> "Not built yet" to "Every sketch and its words, about 6 MB. Ten or so requests, a few seconds."
         SyncState.Running -> "Fetching the catalogue" to "Ten or so requests. A few seconds."
         SyncState.Done -> "Catalogue ready" to "Every sketch’s words now open offline. Drawings download when you ask."
-        SyncState.Failed -> "No connection" to "Skip if you like — Today and Search still work online, and Archive will offer this again."
+        SyncState.Failed -> "No connection" to "You can skip this. Today and Search still work online, and Archive will offer this again."
     }
     val blank = ss == SyncState.Failed || ss == SyncState.Idle
     val total = m.syncTotal.takeIf { it > 0 } ?: 990
@@ -167,7 +167,7 @@ private fun SyncStage(m: AppModel) {
                 SyncState.Idle -> Sk.colors.textTertiary
                 else -> Sk.colors.textPrimary
             }.let { if (Sk.colors.isDark) Art.line else it })
-            T(if (blank) "—" else "${m.syncN} of $total", mono(14), color = Art.caption)
+            T(if (blank) "0 of $total" else "${m.syncN} of $total", mono(14), color = Art.caption)
         }
         Box(Modifier.fillMaxWidth().height(14.dp).clip(Pill).background(Art.page).border(2.dp, Art.line, Pill)) {
             Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(Pill).background(Sk.colors.accentAlt))

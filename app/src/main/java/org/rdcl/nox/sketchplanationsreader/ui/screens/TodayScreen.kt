@@ -131,7 +131,7 @@ fun TodayScreen(m: AppModel) {
             }
         }
 
-        // The podcast band follows the theme — it does not invert.
+        // The podcast band follows the theme; it does not invert.
         val latest = m.episodes.firstOrNull()
         InkRule()
         if (latest != null) Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(horizontal = 16.dp, vertical = 22.dp)) {

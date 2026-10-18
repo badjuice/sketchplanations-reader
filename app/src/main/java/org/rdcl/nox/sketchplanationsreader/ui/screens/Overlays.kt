@@ -71,7 +71,7 @@ fun ConfirmDialog(c: Confirm, onNo: () -> Unit, onYes: () -> Unit) {
     }
 }
 
-/** 👾 — Settings › App › Version, tapped ten times. Respects Reduce motion. */
+/** 👾 Settings › App › Version, tapped ten times. Respects Reduce motion. */
 @Composable
 fun EasterEgg(onClose: () -> Unit) {
     val still = Sk.motion.base == 0

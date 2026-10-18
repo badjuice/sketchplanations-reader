@@ -99,7 +99,7 @@ fun SettingsScreen(m: AppModel) {
         SettingsGroup("Archive", Lucide.Archive, listOf(
             ToggleRow("Letter jump rail", "The A–Z scrubber when sorting alphabetically", s.railLetters) { set { copy(railLetters = !railLetters) } },
             ToggleRow("Year jump rail", "The scrubber when sorting by date", s.railYears) { set { copy(railYears = !railYears) } },
-            ToggleRow("Show every letter", "Keeps the rail complete — empty ones sit greyed out", s.railAll) { set { copy(railAll = !railAll) } },
+            ToggleRow("Show every letter", "Keeps the rail complete, with empty letters greyed out", s.railAll) { set { copy(railAll = !railAll) } },
         )),
         SettingsGroup("Search", Lucide.Search, listOf(
             ToggleRow("Save recent searches", "Kept on this device only", s.showRecents) { set { copy(showRecents = !showRecents) } },
@@ -122,7 +122,7 @@ fun SettingsScreen(m: AppModel) {
             ToggleRow("Keep playing in the background", "Carries on with the screen locked or the app closed. Needs the controls below", s.bgPlay) { set { copy(bgPlay = !bgPlay) } },
             ToggleRow("Lock screen and shade controls", "Play, skip and the chapter outside the app. Off means audio stops when you leave it", s.notifPlayer) { set { copy(notifPlayer = !notifPlayer) } },
             ToggleRow("Pause for calls", "Stops on an incoming call and resumes after", s.pauseOnCall) { set { copy(pauseOnCall = !pauseOnCall) } },
-            ToggleRow("Stop when leaving the episode", "Off by default — audio follows you around the app", s.stopOnLeave) { set { copy(stopOnLeave = !stopOnLeave) } },
+            ToggleRow("Stop when leaving the episode", "Off by default, so audio follows you around the app", s.stopOnLeave) { set { copy(stopOnLeave = !stopOnLeave) } },
         ), weight = 16),
         SettingsGroup("Notifications", Lucide.Bell, listOf(
             ToggleRow("New sketch each week", null, s.notifySketch) { set { copy(notifySketch = !notifySketch) } },
@@ -130,7 +130,7 @@ fun SettingsScreen(m: AppModel) {
         )),
         SettingsGroup("Storage", Lucide.Disk, emptyList(), custom = @Composable { Storage(m) }, weight = 9),
         SettingsGroup("Typeface", Lucide.Info, listOf(
-            SegRow("Typeface", "Applies to the whole app — including the sketch captions",
+            SegRow("Typeface", "Applies to the whole app, including the sketch captions",
                 FontPack.entries.map { it to it.label }, s.font) { v -> set { copy(font = v) } },
         )),
         SettingsGroup("Delete downloads", Lucide.Trash, emptyList(), custom = @Composable { Destructive(m) }, weight = 4),
@@ -255,7 +255,7 @@ private fun Storage(m: AppModel) {
         val last = if (lib.lastSync == 0L) "never" else android.text.format.DateUtils.getRelativeTimeSpanString(lib.lastSync).toString()
         StorageAction("Sync with website", "Checks for new sketches. Also runs on launch when online · last $last", m.syncPct, m.pulseFor("sync") ?: "Sync now") { m.syncWithWebsite() }
         StorageAction("Download all sketches", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Download") { m.askBulk(true) }
-        StorageAction("Download all episodes", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB — large", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Download") { m.askBulk(false) }
+        StorageAction("Download all episodes", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Download") { m.askBulk(false) }
     }
 }
 

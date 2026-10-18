@@ -62,22 +62,22 @@ private class Section(val key: String, val title: String, val paras: List<String
 private const val REPO = "https://github.com/badjuice/sketchplanations-reader"
 private const val REPORT = "$REPO/issues"
 
-/** All credits, one place. The podcast hosts are credited once — here. */
+/** All credits in one place. The podcast hosts are credited here and nowhere else. */
 private val sections = listOf(
     Section("what", "What this app is", listOf(
         "An unofficial reader for Sketchplanations. It fetches the sketches and their words, organises them for a phone, and keeps whatever you download available offline.",
-        "That is the whole job. No account, no feed, no ads — just a nicer way to read work that already exists on the web."), emptyList()),
+        "That is the whole job. No account, no feed, no ads. It reads what the site already publishes."), emptyList()),
     Section("who", "Who made the sketches", listOf(
         "Every sketch, and every word explaining it, is by Jono Hey. He has drawn one a week since 2011 and publishes them free on sketchplanations.com.",
         "The podcast is his too, made with Rob Bell and Tom Pellereau."),
         listOf("sketchplanations.com" to "https://sketchplanations.com", "The podcast" to "https://podcast.sketchplanations.com")),
     Section("indie", "Not affiliated", listOf(
         "This app is built and maintained independently. It is not made, endorsed or supported by Jono Hey or anyone connected to Sketchplanations.",
-        "Anything wrong with the app is the app’s fault — please report it here rather than to him. Anything wrong with a sketch is best raised on the website."),
+        "Anything wrong with the app is the app’s fault, so please report it here rather than to him. Anything wrong with a sketch is best raised on the website."),
         listOf("Report an app problem" to REPORT)),
     Section("hosts", "The podcast hosts", listOf(
         "Jono Hey draws the sketches and brings each one to the table.",
-        "Rob Bell asks the awkward question — the one that finds the edge of the idea.",
+        "Rob Bell asks the awkward question, the one that finds the edge of the idea.",
         "Tom Pellereau brings the example from ordinary life that makes it land.",
         "All three make the show independently of this app."),
         listOf("The podcast" to "https://podcast.sketchplanations.com", "Follow the show" to "https://podcast.sketchplanations.com/follow/")),
@@ -86,10 +86,10 @@ private val sections = listOf(
         "If something in the app is broken it is the app’s to fix. If a sketch is wrong, that is one for the website."),
         listOf("BadJuice on GitHub" to "https://github.com/badjuice", "Report an app problem" to REPORT, "App source" to REPO)),
     Section("support", "Supporting the work", listOf(
-        "If the sketches are useful to you, support them at the source — a paid Substack subscription, a coffee, the Redbubble shop or the book. Nothing you spend there passes through this app, and this app takes nothing."),
+        "If the sketches are useful to you, support them at the source: a paid Substack subscription, a coffee, the Redbubble shop or the book. Nothing you spend there passes through this app, and this app takes nothing."),
         emptyList()),
     Section("credits", "Credits & licence", listOf(
-        "Sketches and words are Creative Commons BY-NC 4.0. Anything you share or save from this app carries its credit line — Jono Hey, plus the address of that sketch on the site — because the licence asks for it.",
+        "Sketches and words are Creative Commons BY-NC 4.0. Anything you share or save from this app carries its credit line (Jono Hey, plus the address of that sketch on the site) because the licence asks for it.",
         "Sketches, words and podcast © Jono Hey and the show’s hosts, used as published.",
         "The app’s own code is free software under the GPL-3.0. Interface debt owed to the xkcd Android reader by zjn0505.",
         "Typefaces: Nunito, Patrick Hand, Space Mono, Lora and Karla, all under the SIL Open Font License."),
@@ -118,7 +118,7 @@ fun AboutScreen(m: AppModel) {
         }
         InkRule()
 
-        // Accordion — one section open at a time.
+        // Accordion: one section open at a time.
         sections.forEach { s ->
             val open = m.acc == s.key
             Column(Modifier.fillMaxWidth().readMeasure(tablet)) {
@@ -148,13 +148,13 @@ fun AboutScreen(m: AppModel) {
                 Column(Modifier.padding(22.dp)) {
                     T("Get a sketch in your inbox", sans(23, 800, 1.25f))
                     Spacer(Modifier.height(6.dp))
-                    T("Jono's own weekly newsletter, straight from the website. This just hands your address to his signup — nothing is stored here.", sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
+                    T("Jono's own weekly newsletter, straight from the website. This only hands your address to his signup; the app stores nothing.", sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
                     Spacer(Modifier.height(16.dp))
                     Field(null, email, { email = it }, "you@example.com", KeyboardType.Email)
                     Spacer(Modifier.height(10.dp))
                     PrimaryButton("Sign up", { m.subscribe(email) }, Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
-                    T("the sketches are free — support them at the source ✎", hand(18, 1.4f), color = Sk.colors.textSecondary)
+                    T("the sketches are free, so support them at the source ✎", hand(18, 1.4f), color = Sk.colors.textSecondary)
                 }
             }
         }
@@ -172,10 +172,10 @@ fun PrintsScreen(m: AppModel) {
                 Column(Modifier.padding(16.dp)) {
                     T("Everything here happens on the website", sans(16, 800))
                     Spacer(Modifier.height(6.dp))
-                    T("This app sells nothing and takes nothing. Every link below leaves for Substack, Buy Me a Coffee or Redbubble — the author's own pages, where the money actually reaches him.", sans(14, 400, 1.5f), color = Sk.colors.textSecondary)
+                    T("This app sells nothing and takes nothing. Every link below leaves for Substack, Buy Me a Coffee or Redbubble, the author's own pages, where the money reaches him.", sans(14, 400, 1.5f), color = Sk.colors.textSecondary)
                 }
             }
-            T("The sketches are free and stay free. If they have been useful, these are the ways the author has said you can help — in his order.", sans(17, 400, 1.5f), Modifier.padding(bottom = 24.dp))
+            T("The sketches are free and stay free. If they have been useful, these are the ways the author has said you can help, in his order.", sans(17, 400, 1.5f), Modifier.padding(bottom = 24.dp))
 
             SupportBlock("The newsletter", "A sketch a week by email, free. A paid subscription is the thing Jono says makes the biggest difference.") {
                 CardPill("Subscribe on Substack", { m.openUrl("https://sketchplanations.substack.com/subscribe") }, trailing = Lucide.External, size = 15, trailingSize = 14.dp)
@@ -225,7 +225,7 @@ fun PrintsScreen(m: AppModel) {
             Spacer(Modifier.height(22.dp))
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, Sk.colors.borderQuiet, RoundedCornerShape(14.dp)).padding(horizontal = 15.dp, vertical = 13.dp)) {
                 val note = buildAnnotatedString {
-                    append("The sketches are Creative Commons BY-NC. Share them freely, credit Jono, don't sell them — this app adds the credit line for you whenever you share or save an image. ")
+                    append("The sketches are Creative Commons BY-NC. Share them freely, credit Jono, don't sell them. This app adds the credit line for you whenever you share or save an image. ")
                     withStyle(SpanStyle(color = Sk.colors.textLink, fontWeight = FontWeight.Bold)) { append("Read the licence ↗") }
                 }
                 androidx.compose.foundation.text.BasicText(

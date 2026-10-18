@@ -22,9 +22,9 @@ object Gallery {
         val fields = linkedMapOf(
             "Title" to title,
             "Author" to "Jono Hey",
-            "Copyright" to "Jono Hey, Sketchplanations — CC BY-NC 4.0",
+            "Copyright" to "Jono Hey, Sketchplanations. Licence: CC BY-NC 4.0",
             "Source" to url,
-            "Description" to "$title. Image: Jono Hey, Sketchplanations — $url",
+            "Description" to "$title. Image: Jono Hey, Sketchplanations, $url",
         )
     }
 
@@ -50,7 +50,7 @@ object Gallery {
             val bytes = if (actual == "image/png") Png.withText(image, credit.fields) else image
             val ext = when (actual) { "image/gif" -> "gif"; "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
             @Suppress("NAME_SHADOWING") val mime = actual
-            val name = "$title — Jono Hey, Sketchplanations.$ext".replace(Regex("[\\\\/:*?\"<>|]"), " ")
+            val name = "$title (Jono Hey, Sketchplanations).$ext".replace(Regex("[\\\\/:*?\"<>|]"), " ")
             try {
                 when {
                     folder != null -> {
@@ -105,7 +105,7 @@ internal object Png {
     }
 
     /** tEXt is Latin-1; anything outside it is replaced so the chunk stays valid. */
-    private fun latin1(s: String) = s.replace("—", "-").map { if (it.code < 256) it else '?' }.joinToString("").toByteArray(Charsets.ISO_8859_1)
+    private fun latin1(s: String) = s.replace("\u2014", "-").replace("\u2013", "-").map { if (it.code < 256) it else '?' }.joinToString("").toByteArray(Charsets.ISO_8859_1)
 
     private fun chunk(type: String, data: ByteArray): ByteArray {
         val t = type.toByteArray(Charsets.US_ASCII)

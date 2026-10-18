@@ -10,7 +10,7 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 """
 body = """
 {% if version %}\
-## {{ version | trim_start_matches(pat="v") }} — {{ timestamp | date(format="%Y-%m-%d") }}
+## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
 {% else %}\
 ## Unreleased
 {% endif %}\

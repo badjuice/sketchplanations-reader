@@ -233,7 +233,7 @@ fun EpisodeScreen(m: AppModel) {
                 ) {
                     Icon(Lucide.WifiOffSmall, Sk.colors.penOrangeInk, 18.dp)
                     Spacer(Modifier.width(10.dp))
-                    T("Offline — download this episode to listen", sans(14, 600, 1.4f))
+                    T("Offline. Download this episode to listen", sans(14, 600, 1.4f))
                 }
             }
 
@@ -380,7 +380,7 @@ fun PodcastAboutScreen(m: AppModel) {
     val tablet = LocalTablet.current
     ScreenScroll(m, align = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp)) {
-            T("Three friends take one sketch a week and talk it all the way through — where the idea comes from, where it breaks, and where it shows up in ordinary life.", sans(17, 400, 1.5f))
+            T("Three friends take one sketch a week and talk it all the way through: where the idea comes from, where it breaks, and where it shows up in ordinary life.", sans(17, 400, 1.5f))
             Spacer(Modifier.height(20.dp))
             InkRule()
             Spacer(Modifier.height(18.dp))
@@ -389,7 +389,7 @@ fun PodcastAboutScreen(m: AppModel) {
                 Column(Modifier.padding(16.dp)) {
                     T("Who makes it", sans(15, 700))
                     Spacer(Modifier.height(6.dp))
-                    T("Jono Hey, Rob Bell and Tom Pellereau — credited in full, with what each of them brings, under About.", sans(14, 400, 1.5f), color = Sk.colors.textSecondary)
+                    T("Jono Hey, Rob Bell and Tom Pellereau. About credits each of them in full, with what they bring.", sans(14, 400, 1.5f), color = Sk.colors.textSecondary)
                     Spacer(Modifier.height(12.dp))
                     Chip("The hosts, in About", { m.openAboutHosts() }, height = 38.dp, leading = null)
                 }
@@ -424,13 +424,13 @@ fun PodcastContactScreen(m: AppModel) {
     var message by rememberSaveable { mutableStateOf("") }
     ScreenScroll(m, align = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp)) {
-            T("Ideas, corrections, a sketch you want talked about — send it over.", sans(16, 400, 1.5f), Modifier.padding(bottom = 22.dp), Sk.colors.textSecondary)
+            T("Ideas, corrections, a sketch you want talked about: send it over.", sans(16, 400, 1.5f), Modifier.padding(bottom = 22.dp), Sk.colors.textSecondary)
             Field("Your name", name, { name = it }, "Name")
             Field("Email", email, { email = it }, "you@example.com", KeyboardType.Email)
             Field("Message", message, { message = it }, "Say hello", minHeight = 130.dp, single = false)
             Spacer(Modifier.height(4.dp))
             PrimaryButton("Send message", { m.sendContact(name, email, message) }, Modifier.fillMaxWidth())
-            T("Opens your email app with this filled in — nothing is sent from here.", sans(13, 400, 1.5f), Modifier.padding(top = 10.dp), Sk.colors.textTertiary)
+            T("Opens your email app with this filled in. Nothing is sent from here.", sans(13, 400, 1.5f), Modifier.padding(top = 10.dp), Sk.colors.textTertiary)
         }
     }
 }
@@ -483,7 +483,7 @@ fun BrowseScreen(m: AppModel) {
                     }
                     if (m.imageHeld(cur.uid)) {
                         Column(Modifier.fillMaxSize().background(Art.paper).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            T("held back — you're on mobile data ✎", hand(17), color = Art.caption)
+                            T("held back: you're on mobile data ✎", hand(17), color = Art.caption)
                             Spacer(Modifier.height(12.dp))
                             InkButton({ m.reveal(cur.uid) }, height = 40.dp, padding = 18.dp, border = Art.line, shadowColor = Art.line) { fg ->
                                 Icon(Lucide.Download, fg, 15.dp, stroke = 2.2f); Spacer(Modifier.width(8.dp)); T("Load image", sans(14, 700), color = fg)
@@ -514,7 +514,7 @@ fun BrowseScreen(m: AppModel) {
     }
 }
 
-/** Ends disable and drop to 40% opacity rather than disappearing — a disabled slot keeps its box. */
+/** Ends disable and drop to 40% opacity rather than disappearing; a disabled slot keeps its box. */
 @Composable
 private fun NavSlot(text: String, label: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     InkButton(

@@ -20,7 +20,7 @@ import kotlin.coroutines.resumeWithException
 /**
  * The app's handle on podcast audio. With [withService] the audio lives in [PlaybackService] and
  * keeps going with the screen locked, with lock-screen and shade controls. Without it, a plain
- * in-app player that never posts a notification — Android requires one for background playback,
+ * in-app player that never posts a notification. Android requires one for background playback,
  * so in that mode audio stops when the app leaves the screen.
  */
 class AudioPlayer(private val context: Context) {
@@ -86,7 +86,7 @@ class AudioPlayer(private val context: Context) {
 
     companion object {
         /**
-         * [uri] is the downloaded file when there is one, otherwise the feed's audio URL — a
+         * [uri] is the downloaded file when there is one, otherwise the feed's audio URL: a
          * tracking redirect that is resolved now, at play time, and never stored.
          */
         fun item(e: Episode, uri: Uri, chapter: String?): MediaItem = MediaItem.Builder()

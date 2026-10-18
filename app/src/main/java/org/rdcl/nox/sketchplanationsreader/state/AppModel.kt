@@ -96,7 +96,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var library by mutableStateOf(Library()); private set
     var conn by mutableStateOf(Conn.Wifi); private set
 
-    // Content, read from the device — everything below works offline.
+    // Content, read from the device. Everything below works offline.
     /** Every sketch, newest first. */
     var sketches by mutableStateOf(emptyList<SketchSummary>()); private set
     var byUid by mutableStateOf(emptyMap<String, SketchSummary>()); private set
@@ -145,7 +145,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var searchMsg by mutableStateOf(SearchMessages.all[0]); private set
     var results by mutableStateOf(emptyList<String>()); private set
 
-    // Downloads — progress lives inside the button that started it
+    // Downloads. Progress lives inside the button that started it.
     var dl by mutableStateOf<String?>(null); private set
     var pct by mutableIntStateOf(0); private set
     var epDl by mutableStateOf<String?>(null); private set
@@ -154,7 +154,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var bulkEpisodes by mutableStateOf<Int?>(null); private set
     var syncPct by mutableStateOf<Int?>(null); private set
     var pulse by mutableStateOf<Pair<String, String>?>(null); private set
-    /** "Load image" reveals for this session only — never the download cache. */
+    /** "Load image" reveals for this session only; it never touches the download cache. */
     var revealed by mutableStateOf(emptySet<String>()); private set
 
     // Player
@@ -223,7 +223,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 if (first) { first = false; return@collect }
                 when {
                     was == Conn.Off && c != Conn.Off ->
-                        flash(if (screen == Screen.Detail || screen == Screen.Browse) "Back online — tap to load this sketch" else "Back online")
+                        flash(if (screen == Screen.Detail || screen == Screen.Browse) "Back online. Tap to load this sketch" else "Back online")
                     c == Conn.Off -> flash("Offline. Everything stored on the phone still opens.")
                     else -> flash(if (c == Conn.Wifi) "On Wi-Fi" else "On mobile data")
                 }
@@ -292,7 +292,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     private fun frame() = Frame(screen, detail, ep, tag, acc, zoomUrl)
 
-    /** Every view resets to its default on entry — no screen remembers a filter set three taps ago. */
+    /** Every view resets to its default on entry. No screen remembers a filter set three taps ago. */
     private fun applyDefaults(s: Screen) {
         when (s) {
             Screen.Categories -> catByFreq = true
@@ -353,7 +353,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun canGoBack() = stack.isNotEmpty() || (screen != Screen.Today && screen != Screen.Onboarding)
 
-    /** Pops one level, to exactly the previous item — not just the previous screen type. */
+    /** Pops one level, back to exactly the previous item rather than the previous screen type. */
     fun back() {
         zoomUrl = null
         val e = stack.lastOrNull()
@@ -370,7 +370,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun shuffle() {
-        val s = sketches.randomOrNull() ?: return flash("Nothing stored yet — sync first")
+        val s = sketches.randomOrNull() ?: return flash("Nothing stored yet. Sync first")
         open(s.uid)
         flash("A random one: ${s.title}")
     }
@@ -430,7 +430,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         syncJob?.cancel()
         syncState = SyncState.Failed; syncN = 0
         finishOnboarding()
-        flash("Index skipped — Archive will offer it again")
+        flash("Index skipped. Archive will offer it again")
     })
 
     /** First-run catalogue fetch: every sketch with its words, about ten requests. */
@@ -457,7 +457,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
      * edited since last time. [quiet] skips the messages when nothing changed.
      */
     fun syncWithWebsite(quiet: Boolean = false) {
-        if (!online) { if (!quiet) flash("Offline — connect to check for new sketches"); return }
+        if (!online) { if (!quiet) flash("Offline. Connect to check for new sketches"); return }
         if (syncPct != null || syncState == SyncState.Running) return
         syncPct = 0
         viewModelScope.launch {
@@ -473,8 +473,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     if (!quiet) pulse("sync", if (result.changed == 0) "Up to date" else "${result.changed} updated")
                     else if (result.changed > 0) flash(if (result.changed == 1) "1 sketch new or updated" else "${result.changed} sketches new or updated")
                 }
-                SyncResult.Offline -> if (!quiet) flash("Offline — connect to check for new sketches")
-                is SyncResult.Failed -> if (!quiet) flash("Couldn't reach the site — try again later")
+                SyncResult.Offline -> if (!quiet) flash("Offline. Connect to check for new sketches")
+                is SyncResult.Failed -> if (!quiet) flash("Couldn't reach the site. Try again later")
             }
         }
     }
@@ -496,7 +496,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Debounced: the field updates instantly, but the loading message only appears once
-     * typing has actually stopped — so it never flickers per keystroke. Searches the words
+     * typing has actually stopped, so it never flickers per keystroke. Searches the words
      * stored on the device, so it works offline.
      */
     fun runSearch(text: String) {
@@ -533,8 +533,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     // ---- sketch actions ------------------------------------------------------------------
 
     private fun downloadBlocked(): Boolean {
-        if (!online) { flash("Offline — connect to download"); return true }
-        if (conn == Conn.Mobile && settings.wifiOnly) { flash("Wi-Fi only is on — Settings › Offline"); return true }
+        if (!online) { flash("Offline. Connect to download"); return true }
+        if (conn == Conn.Mobile && settings.wifiOnly) { flash("Wi-Fi only is on. Settings › Offline"); return true }
         return false
     }
 
@@ -561,7 +561,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                flash("Download failed — check the connection and try again")
+                flash("Download failed. Check the connection and try again")
             } finally {
                 dl = null
                 refreshSizes()
@@ -578,7 +578,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Copies the HD drawing into the gallery (or the chosen folder), credit in name and description. */
     fun toggleGallery(uid: String) {
         val s = byUid[uid] ?: return
-        if (inGallery(uid)) return flash("Already saved — look in Pictures › Sketchplanations")
+        if (inGallery(uid)) return flash("Already saved. Look in Pictures › Sketchplanations")
         viewModelScope.launch {
             pulse("gal", "Saving…")
             val img = s.image
@@ -590,7 +590,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 // Offline: fall back to a downloaded copy if there is one.
                 val local = downloads.image(img, Rendition.Hd).takeIf { it.startsWith("file:") }
                     ?.let { java.io.File(Uri.parse(it).path!!).readBytes() }
-                    ?: return@launch flash("Offline — connect to save this image")
+                    ?: return@launch flash("Offline. Connect to save this image")
                 local to (if (img.isAnimated) "image/gif" else "image/webp")
             }
             val credit = Gallery.Credit(s.title, "https://sketchplanations.com/${s.uid}")
@@ -612,12 +612,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /** Shares carry the credit in the wording the licence page asks for, with the sketch's address. */
     fun share(s: SketchSummary) {
-        effectChannel.trySend(Effect.Share("${s.title}\nImage: Jono Hey, Sketchplanations — https://sketchplanations.com/${s.uid}"))
+        effectChannel.trySend(Effect.Share("${s.title}\nImage: Jono Hey, Sketchplanations\nhttps://sketchplanations.com/${s.uid}"))
         pulse("share", "Credit attached")
     }
 
     fun retryFetch(uid: String) {
-        if (online) toggleDownload(uid) else flash("Still offline — connect to download this one")
+        if (online) toggleDownload(uid) else flash("Still offline. Connect to download this one")
     }
 
     fun reveal(uid: String) {
@@ -665,7 +665,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                flash("Download failed — check the connection and try again")
+                flash("Download failed. Check the connection and try again")
             } finally {
                 epDl = null
                 refreshSizes()
@@ -687,13 +687,13 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun togglePlay(i: Int = ep) {
         val e = episodes.getOrNull(i) ?: return
         if (playing && i == audioEp) { pause(); return }
-        if (!isEpOffline(e.guid) && !online) { flash("Offline — download this episode to listen"); return }
+        if (!isEpOffline(e.guid) && !online) { flash("Offline. Download this episode to listen"); return }
         if (i != audioEp) { audioEp = i; pos = 0f; actualSeconds = 0 }
         play()
     }
 
     fun playLatest() {
-        if (episodes.isEmpty()) return flash("No episodes stored yet — sync first")
+        if (episodes.isEmpty()) return flash("No episodes stored yet. Sync first")
         openEp(0)
         if (!(playing && audioEp == 0)) togglePlay(0)
     }
@@ -745,7 +745,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     lastChapter = chapter
                     p.replaceMediaItem(p.currentMediaItemIndex, AudioPlayer.item(e, loaded, chapter))
                 }
-                sleepEndsAt?.let { if (System.currentTimeMillis() >= it) { pause(); flash("Sleep timer — paused"); return@launch } }
+                sleepEndsAt?.let { if (System.currentTimeMillis() >= it) { pause(); flash("Paused by the sleep timer"); return@launch } }
                 if (!p.playWhenReady) break
                 delay(250)
             }
@@ -764,7 +764,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
         override fun onPlayerError(error: PlaybackException) {
             playing = false
-            flash(if (!online) "Offline — download this episode to listen" else "Couldn't play this episode — try again")
+            flash(if (!online) "Offline. Download this episode to listen" else "Couldn't play this episode. Try again")
         }
     }
 
@@ -841,7 +841,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun askBulk(all: Boolean) {
-        if (!online) return flash("Offline — connect to download")
+        if (!online) return flash("Offline. Connect to download")
         val allEpisodesMB = episodes.sumOf(::epMB)
         ask(if (all) Confirm(
             "Download every sketch?",
@@ -849,21 +849,21 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             "Download all",
         ) { bulk(true) } else Confirm(
             "Download every episode?",
-            "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes — far more than the whole sketch archive. Wi-Fi only, and it will take a while.",
+            "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes. Wi-Fi only, and it takes a while.",
             "Download anyway",
         ) { bulk(false) })
     }
 
     /** Downloads everything not yet stored, one item at a time; stops if Wi-Fi goes. */
     private fun bulk(all: Boolean) {
-        if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi — bulk downloads never use mobile data")
+        if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi. Bulk downloads never use mobile data")
         if (bulkJob?.isActive == true) return flash("A download is already running")
         bulkJob = viewModelScope.launch {
             var failed = 0
             if (all) {
                 val todo = sketches.filter { it.uid !in library.offline }
                 todo.forEachIndexed { i, s ->
-                    if (conn != Conn.Wifi) { bulkSketches = null; refreshSizes(); return@launch flash("Paused — off Wi-Fi. Tap Download to carry on.") }
+                    if (conn != Conn.Wifi) { bulkSketches = null; refreshSizes(); return@launch flash("Paused because Wi-Fi dropped. Tap Download to carry on.") }
                     bulkSketches = (i * 100 / todo.size.coerceAtLeast(1)).coerceAtMost(99)
                     runCatching { downloads.saveImages(s.image, renditions()) }
                         .onSuccess { updateLibrary { if (s.uid in offline) this else copy(offline = offline + s.uid) } }
@@ -875,7 +875,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } else {
                 val todo = episodes.filter { it.guid !in library.epOffline && it.audioUrl != null }
                 todo.forEachIndexed { i, e ->
-                    if (conn != Conn.Wifi) { bulkEpisodes = null; refreshSizes(); return@launch flash("Paused — off Wi-Fi. Tap Download to carry on.") }
+                    if (conn != Conn.Wifi) { bulkEpisodes = null; refreshSizes(); return@launch flash("Paused because Wi-Fi dropped. Tap Download to carry on.") }
                     runCatching { downloads.saveEpisode(e.guid, e.audioUrl!!) { p -> bulkEpisodes = ((i + p) * 100 / todo.size).toInt().coerceAtMost(99) } }
                         .onSuccess { updateLibrary { if (e.guid in epOffline) this else copy(epOffline = epOffline + e.guid) } }
                         .onFailure { if (it is CancellationException) throw it; failed++ }
@@ -893,19 +893,19 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun askDeleteSketches() = ask(Confirm(
         "Delete downloaded sketches?",
-        "This removes ${plural(library.offline.size, "sketch", "sketches")} — ${mb(sketchMB)}. Your favourites stay.",
+        "This removes ${plural(library.offline.size, "sketch", "sketches")} (${mb(sketchMB)}). Your favourites stay.",
         "Delete sketches",
     ) { downloads.deleteAllImages(); updateLibrary { copy(offline = emptyList()) }; refreshSizes(); flash("Downloaded sketches deleted") })
 
     fun askDeleteEpisodes() = ask(Confirm(
         "Delete downloaded episodes?",
-        "This removes ${plural(library.epOffline.size, "episode", "episodes")} — ${mb(podMB)}. Your favourites stay.",
+        "This removes ${plural(library.epOffline.size, "episode", "episodes")} (${mb(podMB)}). Your favourites stay.",
         "Delete episodes",
     ) { audio.player?.clearMediaItems(); downloads.deleteAllEpisodes(); updateLibrary { copy(epOffline = emptyList()) }; refreshSizes(); flash("Downloaded episodes deleted") })
 
     fun askDeleteAll() = ask(Confirm(
         "Delete all downloads?",
-        "This removes ${plural(library.offline.size, "sketch", "sketches")} and ${plural(library.epOffline.size, "episode", "episodes")} — ${mb(sketchMB + podMB)}. Your favourites stay.",
+        "This removes ${plural(library.offline.size, "sketch", "sketches")} and ${plural(library.epOffline.size, "episode", "episodes")}, ${mb(sketchMB + podMB)} in all. Your favourites stay.",
         "Delete everything",
     ) {
         audio.player?.clearMediaItems()
@@ -926,7 +926,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun sendContact(name: String, email: String, message: String) {
         if (message.isBlank()) return flash("Write a message first")
         effectChannel.trySend(Effect.Email(
-            "hello@sketchplanations.com", "For the podcast" + if (name.isNotBlank()) " — from $name" else "",
+            "hello@sketchplanations.com", "For the podcast" + if (name.isNotBlank()) " from $name" else "",
             message + if (email.isNotBlank()) "\n\nReply to: $email" else "",
         ))
     }

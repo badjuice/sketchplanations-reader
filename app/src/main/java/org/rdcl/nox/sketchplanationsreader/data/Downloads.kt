@@ -37,8 +37,8 @@ class Downloads(context: Context, private val http: OkHttpClient) {
         hash(image.original) + "-" + if (image.isAnimated) "anim" else r.name.lowercase()
 
     /**
-     * What to load for [image] at [rendition]: a stored file when there is one — the exact size,
-     * else the reading or HD copy, which scale down fine — otherwise the network URL.
+     * What to load for [image] at [rendition]: a stored file when there is one (the exact size,
+     * else the reading or HD copy, which scale down fine), otherwise the network URL.
      */
     fun image(image: SketchImage, rendition: Rendition): String {
         val f = images[key(image, rendition)] ?: images[key(image, Rendition.Read)] ?: images[key(image, Rendition.Hd)]

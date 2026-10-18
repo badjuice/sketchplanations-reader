@@ -130,7 +130,7 @@ fun badgeOf(l: Link): LinkBadge = when (val t = l.target) {
 private fun hostOf(l: Link) = (l.target as? LinkTarget.External)?.url
     ?.let { runCatching { java.net.URI(it).host?.removePrefix("www.") }.getOrNull() }.orEmpty()
 
-/** Inline colours are the text-weight ink variants — the display pens fail contrast at 16px. */
+/** Inline colours are the text-weight ink variants, because the display pens fail contrast at 16px. */
 @Composable
 fun badgeColor(k: LinkBadge): Color = when (k) {
     LinkBadge.Sketch, LinkBadge.Topic, LinkBadge.Version -> Sk.colors.accent
@@ -406,7 +406,7 @@ private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink
                     val left = if (line == first) l.getHorizontalPosition(s, true) else l.getLineLeft(line)
                     val right = if (line == last) l.getHorizontalPosition(e, true).let { if (it <= left) l.getLineRight(line) else it } else l.getLineRight(line)
                     if (right - left < 2f) continue
-                    // CSS `padding: 0 3px` — the box grows outward; the neighbouring spaces absorb it.
+                    // CSS `padding: 0 3px`: the box grows outward and the neighbouring spaces absorb it.
                     val pad = 3.dp.toPx()
                     val mid = (l.getLineTop(line) + l.getLineBottom(line)) / 2f
                     val tl = Offset(left - pad, mid - h / 2f)
@@ -425,7 +425,7 @@ private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink
 fun HeldPanel(onLoad: () -> Unit) {
     InkCard(Modifier.padding(16.dp).fillMaxWidth(), bg = Art.paper, shadowColor = Art.line) {
         Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            T("image held back — you're on mobile data ✎", hand(17), color = Art.caption)
+            T("image held back: you're on mobile data ✎", hand(17), color = Art.caption)
             InkButton(onLoad, bg = Sk.colors.accentAlt, border = Art.line, shadowColor = Art.line) { fg ->
                 Icon(Lucide.Download, fg, 16.dp, stroke = 2.2f); Spacer(Modifier.width(8.dp)); T("Load image", sans(15, 700), color = fg)
             }
@@ -452,7 +452,7 @@ fun OfflinePanel(onRetry: () -> Unit) {
     }
 }
 
-/** Anchored action bar — does not scroll. Favourite · Share · Download · Save image. */
+/** Anchored action bar that does not scroll: Favourite · Share · Download · Save image. */
 @Composable
 fun DetailActions(m: AppModel) {
     val d = m.sketch ?: return
