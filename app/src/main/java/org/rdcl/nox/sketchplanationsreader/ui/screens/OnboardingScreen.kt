@@ -30,7 +30,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import org.rdcl.nox.sketchplanationsreader.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextDecoration
@@ -97,7 +101,10 @@ fun OnboardingScreen(m: AppModel) {
                 contentAlignment = Alignment.BottomStart,
             ) {
                 AnimatedContent(isSync, transitionSpec = { fadeIn(tween(fade, easing = EaseOut)) togetherWith fadeOut(tween(fade)) }, label = "stage") { sync ->
-                    if (!sync) T("onboarding sketch · 4:3 ✎", hand(17), color = Art.caption)
+                    if (!sync) Image(
+                        painterResource(R.drawable.logo_reader), contentDescription = "Sketchplanations Reader logo",
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
+                    )
                     else SyncStage(m)
                 }
             }

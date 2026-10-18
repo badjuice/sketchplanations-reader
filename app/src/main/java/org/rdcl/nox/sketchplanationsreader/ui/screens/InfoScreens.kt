@@ -25,7 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import org.rdcl.nox.sketchplanationsreader.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.SpanStyle
@@ -103,7 +107,10 @@ fun AboutScreen(m: AppModel) {
     ScreenScroll(m, align = Alignment.CenterHorizontally) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().readMeasure(tablet)) {
-                InkCard(Modifier.size(92.dp, 108.dp), bg = Art.paper, shadow = Shadow.md, radius = 12.dp) {}
+                Image(
+                    painterResource(R.drawable.logo_reader), contentDescription = "Sketchplanations Reader logo",
+                    modifier = Modifier.width(112.dp), contentScale = ContentScale.FillWidth,
+                )
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     T("A reader for Sketchplanations", heading(26, 1.2f))
