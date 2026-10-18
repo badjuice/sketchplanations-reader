@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="320" alt="Sketchplanations Reader logo"></p>
+
 # Sketchplanations — Android reader
 
 An unofficial reader for [sketchplanations.com](https://sketchplanations.com) and its podcast, built in Kotlin and
