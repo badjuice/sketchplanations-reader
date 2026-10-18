@@ -63,7 +63,7 @@ private val steps = listOf(
     Step("One idea, one sketch, every week.", "Jono Hey’s whole archive, laid out so you can actually find things. This is an unofficial reader — the sketches are his."),
     Step("Download post, or save the image.", "Download keeps the drawing and its words in the app for reading with no signal. Save image drops just the picture into your phone gallery."),
     Step("Favourite the ones that stick.", "A star marks what you want to come back to. Favourites and downloads are separate lists, so keeping a sketch never means storing it."),
-    Step("Building your index.", "Archive and Topics need the list of every sketch before they can work. Titles and dates only — the drawings stay on the website until you ask for one."),
+    Step("Building your index.", "This fetches every sketch’s words once, about 6 MB, so the archive, topics and search work with no signal. The drawings stay on the website until you open or download one."),
 )
 
 @Composable
@@ -153,13 +153,14 @@ fun OnboardingScreen(m: AppModel) {
 private fun SyncStage(m: AppModel) {
     val ss = m.syncState
     val (msg, note) = when (ss) {
-        SyncState.Idle -> "Not built yet" to "Titles and dates for all ${Catalogue.TOTAL_POSTS} sketches. About ten requests, a few seconds."
-        SyncState.Running -> "Fetching the catalogue" to "About ten requests. A few seconds."
-        SyncState.Done -> "Catalogue ready" to "Archive, Topics and A–Z all work offline now."
+        SyncState.Idle -> "Not built yet" to "Every sketch and its words, about 6 MB. Ten or so requests, a few seconds."
+        SyncState.Running -> "Fetching the catalogue" to "Ten or so requests. A few seconds."
+        SyncState.Done -> "Catalogue ready" to "Every sketch’s words now open offline. Drawings download when you ask."
         SyncState.Failed -> "No connection" to "Skip if you like — Today and Search still work online, and Archive will offer this again."
     }
     val blank = ss == SyncState.Failed || ss == SyncState.Idle
-    val frac by animateFloatAsState(if (blank) 0f else m.syncN / Catalogue.TOTAL_POSTS.toFloat(), tween(240, easing = EaseOut), label = "sync")
+    val total = m.syncTotal.takeIf { it > 0 } ?: Catalogue.TOTAL_POSTS
+    val frac by animateFloatAsState(if (blank) 0f else m.syncN / total.toFloat(), tween(240, easing = EaseOut), label = "sync")
     Column {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
             T(msg, sans(16, 800), color = when (ss) {
@@ -167,7 +168,7 @@ private fun SyncStage(m: AppModel) {
                 SyncState.Idle -> Sk.colors.textTertiary
                 else -> Sk.colors.textPrimary
             }.let { if (Sk.colors.isDark) Art.line else it })
-            T(if (blank) "—" else "${m.syncN} of ${Catalogue.TOTAL_POSTS}", mono(14), color = Art.caption)
+            T(if (blank) "—" else "${m.syncN} of $total", mono(14), color = Art.caption)
         }
         Box(Modifier.fillMaxWidth().height(14.dp).clip(Pill).background(Art.page).border(2.dp, Art.line, Pill)) {
             Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(Pill).background(Sk.colors.accentAlt))

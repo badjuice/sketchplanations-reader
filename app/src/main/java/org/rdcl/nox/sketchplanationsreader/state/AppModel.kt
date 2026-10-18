@@ -12,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import org.rdcl.nox.sketchplanationsreader.data.AppSettings
 import org.rdcl.nox.sketchplanationsreader.data.Catalogue
 import org.rdcl.nox.sketchplanationsreader.data.Conn
+import org.rdcl.nox.sketchplanationsreader.data.ContentRepository
+import org.rdcl.nox.sketchplanationsreader.data.SyncResult
 import org.rdcl.nox.sketchplanationsreader.data.Library
 import org.rdcl.nox.sketchplanationsreader.data.Sketch
 import org.rdcl.nox.sketchplanationsreader.data.SketchLink
@@ -64,6 +66,7 @@ sealed interface Effect {
 
 class AppModel(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
+    val repo = ContentRepository(app)
 
     var loaded by mutableStateOf(false); private set
     var settings by mutableStateOf(AppSettings()); private set
@@ -109,6 +112,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var bulkSketches by mutableStateOf<Int?>(null); private set
     var bulkEpisodes by mutableStateOf<Int?>(null); private set
     var syncPct by mutableStateOf<Int?>(null); private set
+    /** Sketches the catalogue fetch expects, as the site reports it. */
+    var syncTotal by mutableIntStateOf(0); private set
+    /** Bumped whenever stored content changes, so screens reload. */
+    var contentVersion by mutableIntStateOf(0); private set
     var pulse by mutableStateOf<Pair<String, String>?>(null); private set
     /** "Load image" reveals for this session only — never the download cache. */
     var revealed by mutableStateOf(emptySet<Int>()); private set
@@ -148,8 +155,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             launch { snapshotFlow { settings }.drop(1).collect { store.save(it) } }
             launch { snapshotFlow { library }.drop(1).collect { store.save(it) } }
             // The incremental catalogue check also runs on launch when online.
+            library = library.copy(indexBuilt = repo.sketchCount() > 0)
             delay(1500)
-            if (online && library.indexBuilt) syncWithWebsite()
+            if (online && library.indexBuilt) syncWithWebsite(quiet = true)
         }
         viewModelScope.launch {
             var first = true
@@ -335,43 +343,47 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         flash("Index skipped — Archive will offer it again")
     })
 
-    /** First-run catalogue fetch: titles and dates for every post, about ten requests. */
+    /** First-run catalogue fetch: every sketch with its words, about ten requests. */
     fun startSync() {
         syncJob?.cancel()
         if (!online) { syncState = SyncState.Failed; syncN = 0; return }
         syncState = SyncState.Running; syncN = 0
-        val from = System.currentTimeMillis()
         syncJob = viewModelScope.launch {
-            while (isActive) {
-                delay(110)
-                if (!online) { syncState = SyncState.Failed; syncN = 0; return@launch }
-                val v = ((System.currentTimeMillis() - from) / 2400f * Catalogue.TOTAL_POSTS).roundToInt().coerceAtMost(Catalogue.TOTAL_POSTS)
-                syncN = v
-                if (v >= Catalogue.TOTAL_POSTS) {
+            when (repo.sync { done, total -> syncN = done; syncTotal = total }) {
+                is SyncResult.Done -> {
                     syncState = SyncState.Done
+                    syncN = repo.sketchCount(); syncTotal = syncN
                     updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
-                    return@launch
+                    contentVersion++
                 }
+                SyncResult.Offline -> { syncState = SyncState.Failed; syncN = 0 }
+                is SyncResult.Failed -> { syncState = SyncState.Failed; syncN = 0 }
             }
         }
     }
 
-    /** Settings › Storage › Sync with website: an incremental check, progress in the button. */
-    fun syncWithWebsite() {
-        if (!online) return flash("Offline — connect to check for new sketches")
-        if (syncPct != null) return
+    /**
+     * Settings › Storage › Sync with website, and the check on launch: fetches only what's new or
+     * edited since last time. [quiet] skips the messages when nothing changed.
+     */
+    fun syncWithWebsite(quiet: Boolean = false) {
+        if (!online) { if (!quiet) flash("Offline — connect to check for new sketches"); return }
+        if (syncPct != null || syncState == SyncState.Running) return
+        syncPct = 0
         viewModelScope.launch {
-            val from = System.currentTimeMillis()
-            while (true) {
-                val p = ((System.currentTimeMillis() - from) / 1200f * 100).roundToInt().coerceAtMost(100)
-                syncPct = p
-                if (p >= 100) break
-                delay(60)
-            }
+            val result = repo.sync { done, total -> if (total > 0) syncPct = (done * 100 / total).coerceIn(0, 99) }
             syncPct = null
-            updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
-            if (syncState != SyncState.Running) syncState = SyncState.Done
-            pulse("sync", "Up to date")
+            when (result) {
+                is SyncResult.Done -> {
+                    updateLibrary { copy(indexBuilt = true, lastSync = System.currentTimeMillis()) }
+                    if (syncState != SyncState.Running) syncState = SyncState.Done
+                    contentVersion++
+                    if (!quiet) pulse("sync", if (result.changed == 0) "Up to date" else "${result.changed} updated")
+                    else if (result.changed > 0) flash(if (result.changed == 1) "1 sketch new or updated" else "${result.changed} sketches new or updated")
+                }
+                SyncResult.Offline -> if (!quiet) flash("Offline — connect to check for new sketches")
+                is SyncResult.Failed -> if (!quiet) flash("Couldn't reach the site — try again later")
+            }
         }
     }
 
