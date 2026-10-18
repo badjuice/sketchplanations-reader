@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.data
+package org.rdcl.nox.sketchplanationsreader.data
 
 import android.content.Context
 import android.net.ConnectivityManager

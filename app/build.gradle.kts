@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.sketchplanations.reader"
+    namespace = "org.rdcl.nox.sketchplanationsreader"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.sketchplanations.reader"
+        applicationId = "org.rdcl.nox.sketchplanationsreader"
         minSdk = 26
         targetSdk = 34
         versionCode = 4

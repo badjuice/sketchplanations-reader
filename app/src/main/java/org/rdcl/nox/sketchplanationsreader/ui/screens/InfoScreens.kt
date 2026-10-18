@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.ui.screens
+package org.rdcl.nox.sketchplanationsreader.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -34,29 +34,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.sketchplanations.reader.data.Catalogue
-import com.sketchplanations.reader.state.AppModel
-import com.sketchplanations.reader.state.Screen
-import com.sketchplanations.reader.ui.components.ArtBlock
-import com.sketchplanations.reader.ui.components.CardPill
-import com.sketchplanations.reader.ui.components.Hairline
-import com.sketchplanations.reader.ui.components.Icon
-import com.sketchplanations.reader.ui.components.InkCard
-import com.sketchplanations.reader.ui.components.InkRule
-import com.sketchplanations.reader.ui.components.LocalTablet
-import com.sketchplanations.reader.ui.components.Lucide
-import com.sketchplanations.reader.ui.components.Pill
-import com.sketchplanations.reader.ui.components.PressRow
-import com.sketchplanations.reader.ui.components.PrimaryButton
-import com.sketchplanations.reader.ui.components.T
-import com.sketchplanations.reader.ui.components.noRippleClick
-import com.sketchplanations.reader.ui.components.readMeasure
-import com.sketchplanations.reader.ui.theme.Art
-import com.sketchplanations.reader.ui.theme.Shadow
-import com.sketchplanations.reader.ui.theme.Sk
-import com.sketchplanations.reader.ui.theme.hand
-import com.sketchplanations.reader.ui.theme.heading
-import com.sketchplanations.reader.ui.theme.sans
+import org.rdcl.nox.sketchplanationsreader.data.Catalogue
+import org.rdcl.nox.sketchplanationsreader.state.AppModel
+import org.rdcl.nox.sketchplanationsreader.state.Screen
+import org.rdcl.nox.sketchplanationsreader.ui.components.ArtBlock
+import org.rdcl.nox.sketchplanationsreader.ui.components.CardPill
+import org.rdcl.nox.sketchplanationsreader.ui.components.Hairline
+import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
+import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
+import org.rdcl.nox.sketchplanationsreader.ui.components.InkRule
+import org.rdcl.nox.sketchplanationsreader.ui.components.LocalTablet
+import org.rdcl.nox.sketchplanationsreader.ui.components.Lucide
+import org.rdcl.nox.sketchplanationsreader.ui.components.Pill
+import org.rdcl.nox.sketchplanationsreader.ui.components.PressRow
+import org.rdcl.nox.sketchplanationsreader.ui.components.PrimaryButton
+import org.rdcl.nox.sketchplanationsreader.ui.components.T
+import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
+import org.rdcl.nox.sketchplanationsreader.ui.components.readMeasure
+import org.rdcl.nox.sketchplanationsreader.ui.theme.Art
+import org.rdcl.nox.sketchplanationsreader.ui.theme.Shadow
+import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
+import org.rdcl.nox.sketchplanationsreader.ui.theme.hand
+import org.rdcl.nox.sketchplanationsreader.ui.theme.heading
+import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 
 private class Section(val key: String, val title: String, val paras: List<String>, val links: List<Pair<String, String>>)
 

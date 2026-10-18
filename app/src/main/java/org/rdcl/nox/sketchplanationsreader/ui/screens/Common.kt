@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.ui.screens
+package org.rdcl.nox.sketchplanationsreader.ui.screens
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Column
@@ -11,7 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.sketchplanations.reader.state.AppModel
+import org.rdcl.nox.sketchplanationsreader.state.AppModel
 
 /** A screen that scrolls, and scrolls home when its tab is re-tapped. */
 @Composable

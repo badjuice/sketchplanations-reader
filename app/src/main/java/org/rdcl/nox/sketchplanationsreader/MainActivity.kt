@@ -1,4 +1,4 @@
-package com.sketchplanations.reader
+package org.rdcl.nox.sketchplanationsreader
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -19,11 +19,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import com.sketchplanations.reader.state.AppModel
-import com.sketchplanations.reader.state.Effect
-import com.sketchplanations.reader.ui.App
-import com.sketchplanations.reader.ui.theme.SkTheme
-import com.sketchplanations.reader.ui.theme.Sk
+import org.rdcl.nox.sketchplanationsreader.state.AppModel
+import org.rdcl.nox.sketchplanationsreader.state.Effect
+import org.rdcl.nox.sketchplanationsreader.ui.App
+import org.rdcl.nox.sketchplanationsreader.ui.theme.SkTheme
+import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
 
 class MainActivity : ComponentActivity() {
     private val model: AppModel by viewModels()

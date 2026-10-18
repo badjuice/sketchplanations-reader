@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.ui.theme
+package org.rdcl.nox.sketchplanationsreader.ui.theme
 
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.runtime.Composable
@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.sketchplanations.reader.R
+import org.rdcl.nox.sketchplanationsreader.R
 
 @OptIn(ExperimentalTextApi::class)
 private fun variable(res: Int, vararg weights: Int) = FontFamily(

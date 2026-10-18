@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.ui.components
+package org.rdcl.nox.sketchplanationsreader.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size

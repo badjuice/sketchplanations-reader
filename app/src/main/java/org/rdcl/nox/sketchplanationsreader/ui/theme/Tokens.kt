@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.ui.theme
+package org.rdcl.nox.sketchplanationsreader.ui.theme
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf

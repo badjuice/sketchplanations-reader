@@ -1,4 +1,4 @@
-package com.sketchplanations.reader.data
+package org.rdcl.nox.sketchplanationsreader.data
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
