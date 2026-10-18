@@ -17,6 +17,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Test builds name the exact commit: 0.2.0-3-g1a2b3c4, plus -dirty for uncommitted changes.
+            versionNameSuffix = gitPosition()
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -51,3 +55,11 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.browser:browser:1.8.0")
 }
+
+/** Commits since the last release tag, e.g. "-3-g1a2b3c4". Empty on a tagged commit or without git. */
+fun gitPosition(): String = runCatching {
+    providers.exec {
+        commandLine("git", "describe", "--tags", "--dirty", "--always", "--match", "v[0-9]*")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrDefault("").replace(Regex("^v[0-9][^-]*"), "").let { if (it.isEmpty() || it.startsWith("-")) it else "-g$it" }
