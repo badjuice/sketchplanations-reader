@@ -17,14 +17,36 @@ android {
         versionName = "0.3.0"
     }
 
+    // Release signing comes from ~/.gradle/gradle.properties, never from the repository:
+    // SKETCH_RELEASE_STORE, SKETCH_RELEASE_PASSWORD, SKETCH_RELEASE_ALIAS.
+    val releaseStore = providers.gradleProperty("SKETCH_RELEASE_STORE").orNull
+    signingConfigs {
+        if (releaseStore != null) create("release") {
+            storeFile = file(releaseStore)
+            storePassword = providers.gradleProperty("SKETCH_RELEASE_PASSWORD").get()
+            keyAlias = providers.gradleProperty("SKETCH_RELEASE_ALIAS").get()
+            keyPassword = providers.gradleProperty("SKETCH_RELEASE_PASSWORD").get()
+        }
+    }
+
+    // One APK per CPU architecture, plus a universal one that runs anywhere.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isUniversalApk = true
+        }
+    }
+
     buildTypes {
         debug {
             // Test builds name the exact commit: 0.2.0-3-g1a2b3c4, plus -dirty for uncommitted changes.
             versionNameSuffix = gitPosition()
         }
         release {
-            // Not published to a store: release builds are signed with the local debug key so they install side by side for testing.
-            signingConfig = signingConfigs.getByName("debug")
+            // Without the private release key (e.g. on another machine), fall back to the debug key so builds still install.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
