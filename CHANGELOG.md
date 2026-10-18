@@ -4,6 +4,22 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 [Semantic Versioning](https://semver.org). 0.1.0 was the interactive prototype in Claude Design;
 0.2.0 is the first native build.
 
+## 0.4.0 — 2026-10-18
+
+### Added
+
+- **podcast:** Real playback with lock-screen controls (054e89e)
+- Real downloads for sketches, images and episodes (fc3cae9)
+
+### Documentation
+
+- Document building and publishing release APKs (cba70f7)
+- The app no longer simulates anything (23b056c)
+
+### Maintenance
+
+- Per-architecture release APKs and a private release key (6ee2d55)
+
 ## 0.3.0 — 2026-10-18
 
 ### Added
