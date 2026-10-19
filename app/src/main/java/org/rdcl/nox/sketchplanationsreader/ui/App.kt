@@ -7,9 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -30,10 +28,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -56,7 +52,6 @@ import org.rdcl.nox.sketchplanationsreader.BuildConfig
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.components.BarIcon
-import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
 import org.rdcl.nox.sketchplanationsreader.ui.components.LocalHints
 import org.rdcl.nox.sketchplanationsreader.ui.components.LocalTablet
@@ -78,10 +73,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.screens.EasterEgg
 import org.rdcl.nox.sketchplanationsreader.ui.screens.EpisodeScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.LibraryScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.OnboardingScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastAboutScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastContactScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.PrintsScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.SearchScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.SettingsScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.TagScreen
@@ -90,7 +82,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.screens.LinkSheet
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ZoomViewer
 import org.rdcl.nox.sketchplanationsreader.ui.theme.EaseOut
 import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
-import org.rdcl.nox.sketchplanationsreader.ui.theme.hand
 import org.rdcl.nox.sketchplanationsreader.ui.theme.mono
 import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 
@@ -108,7 +99,6 @@ private val menuItems = listOf(
     MenuItem("Random sketch", Lucide.Shuffle) { it.shuffle() },
     MenuItem("Settings", Lucide.Settings) { it.go(Screen.Settings) },
     MenuItem("About this app", Lucide.Info) { it.go(Screen.About) },
-    MenuItem("Support the author", Lucide.Image) { it.go(Screen.Prints) },
 )
 
 /** Identifies a history entry: its depth, its screen and what it shows. */
@@ -190,10 +180,7 @@ private fun ScreenContent(m: AppModel, s: Screen) {
         Screen.Podcast -> PodcastScreen(m)
         Screen.Episode -> EpisodeScreen(m)
         Screen.Tag -> TagScreen(m)
-        Screen.PodcastAbout -> PodcastAboutScreen(m)
-        Screen.PodcastContact -> PodcastContactScreen(m)
         Screen.About -> AboutScreen(m)
-        Screen.Prints -> PrintsScreen(m)
         Screen.Settings -> SettingsScreen(m)
     }
 }

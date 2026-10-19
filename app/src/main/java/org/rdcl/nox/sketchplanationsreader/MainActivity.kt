@@ -88,8 +88,6 @@ class MainActivity : ComponentActivity() {
                 Effect.RequestNotifications -> if (Build.VERSION.SDK_INT >= 33 &&
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
                 ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 2)
-                is Effect.Email -> startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + e.to))
-                    .putExtra(Intent.EXTRA_SUBJECT, e.subject).putExtra(Intent.EXTRA_TEXT, e.body))
             }
         } catch (_: ActivityNotFoundException) {
             model.flash("No app on this device can open that")

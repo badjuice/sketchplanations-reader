@@ -273,13 +273,12 @@ private fun SketchPage(m: AppModel, s: SketchSummary) {
                     f.links.filter { it.target !is LinkTarget.ImageVersion && (it.target as? LinkTarget.Sketch)?.uid !in f.related }
                         .distinctBy { it.target }
                 }
-                if (links.isNotEmpty() || f.printsUrl != null) {
+                if (links.isNotEmpty()) {
                     Spacer(Modifier.height(20.dp))
                     Eyebrow("Links in this sketch")
                     Spacer(Modifier.height(10.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         links.forEach { l -> LinkRow(l, m) }
-                        f.printsUrl?.let { LinkRow(Link("Prints of this sketch", LinkTarget.External(it, LinkKind.Web)), m) }
                     }
                 }
 

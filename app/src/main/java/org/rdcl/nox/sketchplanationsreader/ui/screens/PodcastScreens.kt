@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,14 +43,10 @@ import org.rdcl.nox.sketchplanationsreader.ui.image
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
-import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.clock
 import org.rdcl.nox.sketchplanationsreader.ui.components.ArtBlock
-import org.rdcl.nox.sketchplanationsreader.ui.components.CardPill
 import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
 import org.rdcl.nox.sketchplanationsreader.ui.components.Columns
-import org.rdcl.nox.sketchplanationsreader.ui.components.DeleteButton
-import org.rdcl.nox.sketchplanationsreader.ui.components.EmptyState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Hairline
 import org.rdcl.nox.sketchplanationsreader.ui.components.Highlighter
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
@@ -102,10 +97,7 @@ fun PodcastScreen(m: AppModel) {
                     T(listOf(latest.code, latest.lengthLabel, latest.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(13), color = Sk.colors.textTertiary)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PrimaryButton("Play", { m.playLatest() }, Modifier.weight(1f), icon = Lucide.Play)
-                OutlinePill("Library", Lucide.Library) { m.go(Screen.Library) }
-            }
+            PrimaryButton("Play", { m.playLatest() }, Modifier.fillMaxWidth(), icon = Lucide.Play)
         }
         InkRule()
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
@@ -135,16 +127,7 @@ fun PodcastScreen(m: AppModel) {
                 }
             }
         }
-        InkRule()
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 26.dp)) {
-            CardPill("About the podcast", { m.goDeep(Screen.PodcastAbout) })
-        }
     }
-}
-
-@Composable
-private fun OutlinePill(text: String, icon: Lucide, onClick: () -> Unit) {
-    Chip(text, onClick, height = 44.dp, hPad = 20.dp, style = sans(16, 700), leading = icon)
 }
 
 // ---- Episode ------------------------------------------------------------------------------
@@ -329,73 +312,6 @@ fun EpisodeRow(e: Episode, meta: String, onClick: () -> Unit, trailing: (@Compos
             if (trailing != null) { Spacer(Modifier.width(12.dp)); trailing() }
         }
         Hairline()
-    }
-}
-
-// ---- Podcast about + follow ---------------------------------------------------------------
-
-private val players = listOf(
-    "Spotify" to "https://open.spotify.com", "Apple Podcasts" to "https://podcasts.apple.com",
-    "Overcast" to "https://overcast.fm", "RSS feed" to "https://podcast.sketchplanations.com",
-)
-
-@Composable
-fun PodcastAboutScreen(m: AppModel) {
-    val tablet = LocalTablet.current
-    ScreenScroll(m, align = Alignment.CenterHorizontally) {
-        Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp)) {
-            T("Three friends take one sketch a week and talk it all the way through: where the idea comes from, where it breaks, and where it shows up in ordinary life.", sans(17, 400, 1.5f))
-            Spacer(Modifier.height(20.dp))
-            InkRule()
-            Spacer(Modifier.height(18.dp))
-            // Credits live once, in About. This card deep-links there rather than repeating them.
-            InkCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    T("Who makes it", sans(15, 700))
-                    Spacer(Modifier.height(6.dp))
-                    T("Jono Hey, Rob Bell and Tom Pellereau. About credits each of them in full, with what they bring.", sans(14, 400, 1.5f), color = Sk.colors.textSecondary)
-                    Spacer(Modifier.height(12.dp))
-                    Chip("The hosts, in About", { m.openAboutHosts() }, height = 38.dp, leading = null)
-                }
-            }
-            T("Listen in full", sans(16, 700), Modifier.padding(top = 24.dp, bottom = 4.dp), Sk.colors.textSecondary)
-            T("The whole back catalogue, outside this app. YouTube carries every episode with the sketch on screen.", sans(13, 400, 1.5f), Modifier.padding(bottom = 12.dp), Sk.colors.textTertiary)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                CardPill("Watch on YouTube", { m.openUrl("https://www.youtube.com/playlist?list=PLnLqYvj919Xt_XhzOyccZ5WFCTaz_Q0Vq") }, trailing = Lucide.External, size = 15, trailingSize = 14.dp)
-                CardPill("Listen on Acast", { m.openUrl("https://shows.acast.com/sketchplanations") }, trailing = Lucide.External, size = 15, trailingSize = 14.dp)
-            }
-            Spacer(Modifier.height(22.dp))
-            InkRule()
-            T("Follow the show", sans(16, 700), Modifier.padding(top = 20.dp, bottom = 12.dp), Sk.colors.textSecondary)
-            players.chunked(2).forEach { pair ->
-                Row(Modifier.padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pair.forEach { (name, url) -> CardPill(name, { m.openUrl(url) }, Modifier.weight(1f), trailing = Lucide.External, size = 14, trailingSize = 14.dp) }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            PrimaryButton("Contact the show", { m.goDeep(Screen.PodcastContact) }, Modifier.fillMaxWidth(), trailing = Lucide.ArrowRight)
-        }
-    }
-}
-
-// ---- Podcast contact ----------------------------------------------------------------------
-
-@Composable
-fun PodcastContactScreen(m: AppModel) {
-    val tablet = LocalTablet.current
-    var name by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
-    var message by rememberSaveable { mutableStateOf("") }
-    ScreenScroll(m, align = Alignment.CenterHorizontally) {
-        Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp)) {
-            T("Ideas, corrections, a sketch you want talked about: send it over.", sans(16, 400, 1.5f), Modifier.padding(bottom = 22.dp), Sk.colors.textSecondary)
-            Field("Your name", name, { name = it }, "Name")
-            Field("Email", email, { email = it }, "you@example.com", KeyboardType.Email)
-            Field("Message", message, { message = it }, "Say hello", minHeight = 130.dp, single = false)
-            Spacer(Modifier.height(4.dp))
-            PrimaryButton("Send message", { m.sendContact(name, email, message) }, Modifier.fillMaxWidth())
-            T("Opens your email app with this filled in. Nothing is sent from here.", sans(13, 400, 1.5f), Modifier.padding(top = 10.dp), Sk.colors.textTertiary)
-        }
     }
 }
 

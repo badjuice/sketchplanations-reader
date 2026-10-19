@@ -57,13 +57,10 @@ enum class Screen(val title: String, val top: Boolean) {
     Search("Search", true),
     Library("Library", true),
     Podcast("Podcast", true),
-    Prints("Support the author", true),
     About("About this app", true),
     Settings("Settings", true),
     Episode("Episode", false),
     Tag("", false),
-    PodcastAbout("About the podcast", false),
-    PodcastContact("Contact the show", false),
 }
 
 /** A history entry. Sketch → linked sketch → episode all share screen names, so each frame snapshots its subject too. */
@@ -81,7 +78,6 @@ enum class SearchPhase { Idle, Typing, Searching, Done }
 sealed interface Effect {
     data class OpenUrl(val url: String, val inApp: Boolean) : Effect
     data class Share(val text: String) : Effect
-    data class Email(val to: String, val subject: String, val body: String) : Effect
     /** Android 8–9 only: storage permission for saving into Pictures. */
     data object RequestStorage : Effect
     /** Android 13+: permission to show the download progress notification. */
@@ -405,8 +401,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         go(Screen.Settings)
         settingsFocus = "storage"
     }
-
-    fun openAboutHosts() = goDeep(Screen.About) { acc = "hosts" }
 
     fun canGoBack() = stack.isNotEmpty() || (screen != Screen.Today && screen != Screen.Onboarding)
 
@@ -994,18 +988,4 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (verTaps >= 6) flash("${10 - verTaps} more…")
     }
 
-    // ---- outbound ------------------------------------------------------------------------
-
-    fun sendContact(name: String, email: String, message: String) {
-        if (message.isBlank()) return flash("Write a message first")
-        effectChannel.trySend(Effect.Email(
-            "hello@sketchplanations.com", "For the podcast" + if (name.isNotBlank()) " from $name" else "",
-            message + if (email.isNotBlank()) "\n\nReply to: $email" else "",
-        ))
-    }
-
-    fun subscribe(email: String) {
-        val e = email.trim()
-        openUrl("https://sketchplanations.substack.com/subscribe" + if (e.isNotEmpty()) "?email=" + java.net.URLEncoder.encode(e, "UTF-8") else "")
-    }
 }

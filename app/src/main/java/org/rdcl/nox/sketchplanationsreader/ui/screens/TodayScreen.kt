@@ -38,33 +38,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.rdcl.nox.sketchplanationsreader.data.HomeLayout
 import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
-import org.rdcl.nox.sketchplanationsreader.ui.code
 import org.rdcl.nox.sketchplanationsreader.ui.date
 import org.rdcl.nox.sketchplanationsreader.ui.image
-import org.rdcl.nox.sketchplanationsreader.ui.lengthLabel
 import org.rdcl.nox.sketchplanationsreader.ui.num
 import org.rdcl.nox.sketchplanations.explode.Rendition
 import java.time.LocalDate
 import kotlin.random.Random
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
-import org.rdcl.nox.sketchplanationsreader.state.Screen
 import org.rdcl.nox.sketchplanationsreader.ui.components.ArtBlock
-import org.rdcl.nox.sketchplanationsreader.ui.components.CardPill
 import org.rdcl.nox.sketchplanationsreader.ui.components.EmptyState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
-import org.rdcl.nox.sketchplanationsreader.ui.components.Highlighter
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
-import org.rdcl.nox.sketchplanationsreader.ui.components.InkButton
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkRule
 import org.rdcl.nox.sketchplanationsreader.ui.components.Lucide
 import org.rdcl.nox.sketchplanationsreader.ui.components.Pill
 import org.rdcl.nox.sketchplanationsreader.ui.components.PressRow
-import org.rdcl.nox.sketchplanationsreader.ui.components.PrimaryButton
 import org.rdcl.nox.sketchplanationsreader.ui.components.T
 import org.rdcl.nox.sketchplanationsreader.ui.components.TextLink
 import org.rdcl.nox.sketchplanationsreader.ui.components.Hairline
@@ -134,30 +126,6 @@ fun TodayScreen(m: AppModel) {
             }
         }
 
-        // The podcast band follows the theme; it does not invert.
-        val latest = m.episodes.firstOrNull()
-        InkRule()
-        if (latest != null) Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(horizontal = 16.dp, vertical = 22.dp)) {
-            Highlighter("on the podcast this week 🎧")
-            Spacer(Modifier.height(8.dp))
-            T(latest.title, heading(26, 1.2f))
-            Spacer(Modifier.height(6.dp))
-            T(listOf(latest.code, latest.lengthLabel, "with Jono, Rob and Tom").filter { it.isNotEmpty() }.joinToString(" · "), sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PrimaryButton("Play episode", { m.playLatest() }, Modifier.weight(1f), icon = Lucide.Play)
-                GhostButton("All episodes") { m.go(Screen.Podcast) }
-            }
-        }
-        if (latest != null) InkRule()
-
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 28.dp)) {
-            T("Combining 🧠 curiosity, ♥️ heart, and ✍️ art since 2013", hand(19, 1.4f, italic = true).copy(textAlign = TextAlign.Center), Modifier.fillMaxWidth(), Sk.colors.textSecondary)
-            Spacer(Modifier.height(16.dp))
-            T("One idea, explained in one sketch, every week. The newsletter lives in About; prints and the book have their own page.", sans(16, 400, 1.5f), color = Sk.colors.textSecondary)
-            Spacer(Modifier.height(14.dp))
-            CardPill("About this app", { m.go(Screen.About) })
-        }
     }
 }
 
