@@ -71,6 +71,9 @@ class ConfirmToggle(val label: String, val hint: String, val on: () -> Boolean, 
 
 data class Confirm(val title: String, val body: String, val cta: String, val toggle: ConfirmToggle? = null, val danger: Boolean = true, val act: () -> Unit)
 
+/** Screens with settings of their own, opened from the sliders in the top bar. */
+enum class Options { Today, Reading, Archive, Search, Podcast }
+
 enum class SyncState { Idle, Running, Done, Failed }
 enum class Sort { Az, Date }
 enum class SearchPhase { Idle, Typing, Searching, Done }
@@ -173,6 +176,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var zoomUrl by mutableStateOf<String?>(null)
     var toast by mutableStateOf<String?>(null); private set
     var confirm by mutableStateOf<Confirm?>(null)
+    /** The open screen-settings sheet, or null. */
+    var options by mutableStateOf<Options?>(null)
     /** A long-pressed link, shown with its address and Copy / Share. */
     var linkSheet by mutableStateOf<Link?>(null)
     var egg by mutableStateOf(false)
@@ -346,6 +351,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         menu = false
         zoomUrl = null
         linkSheet = null
+        options = null
         if (leaving == Screen.Episode && s != Screen.Episode && playing && settings.stopOnLeave) pause()
     }
 

@@ -12,14 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -29,10 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.rdcl.nox.sketchplanations.explode.Episode
@@ -312,30 +307,5 @@ fun EpisodeRow(e: Episode, meta: String, onClick: () -> Unit, trailing: (@Compos
             if (trailing != null) { Spacer(Modifier.width(12.dp)); trailing() }
         }
         Hairline()
-    }
-}
-
-/** 12px-radius sunken input with the 2px ink edge. */
-@Composable
-fun Field(
-    label: String?, value: String, onChange: (String) -> Unit, placeholder: String,
-    type: KeyboardType = KeyboardType.Text, minHeight: Dp = 44.dp, single: Boolean = true,
-) {
-    Column(Modifier.padding(bottom = if (label != null) 16.dp else 0.dp)) {
-        if (label != null) T(label, sans(14, 600), Modifier.padding(bottom = 6.dp), Sk.colors.textSecondary)
-        val shape = RoundedCornerShape(12.dp)
-        Box(
-            Modifier.fillMaxWidth().heightIn(min = minHeight).clip(shape).background(Sk.colors.surfaceSunken)
-                .border(2.dp, Sk.colors.borderDefault, shape).padding(horizontal = 16.dp, vertical = if (single) 10.dp else 12.dp),
-            contentAlignment = if (single) Alignment.CenterStart else Alignment.TopStart,
-        ) {
-            if (value.isEmpty()) T(placeholder, sans(16), color = Sk.colors.textTertiary)
-            BasicTextField(
-                value, onChange, Modifier.fillMaxWidth(),
-                textStyle = sans(16, 400, 1.4f).copy(color = Sk.colors.textPrimary),
-                singleLine = single, cursorBrush = SolidColor(Sk.colors.accentAlt),
-                keyboardOptions = KeyboardOptions(keyboardType = type),
-            )
-        }
     }
 }

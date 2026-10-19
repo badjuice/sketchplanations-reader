@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,10 +38,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.rdcl.nox.sketchplanationsreader.BuildConfig
 import org.rdcl.nox.sketchplanationsreader.data.AppSettings
-import org.rdcl.nox.sketchplanationsreader.data.HomeLayout
-import org.rdcl.nox.sketchplanationsreader.data.LinkStyle
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
-import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
+import org.rdcl.nox.sketchplanationsreader.state.Options
 import org.rdcl.nox.sketchplanationsreader.ui.components.Icon
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkButton
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
@@ -50,7 +47,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.components.LocalTablet
 import org.rdcl.nox.sketchplanationsreader.ui.components.Lucide
 import org.rdcl.nox.sketchplanationsreader.ui.components.Pill
 import org.rdcl.nox.sketchplanationsreader.ui.components.T
-import org.rdcl.nox.sketchplanationsreader.ui.components.Toggle
 import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
 import org.rdcl.nox.sketchplanationsreader.ui.theme.FontPack
 import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
@@ -59,16 +55,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.mono
 import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 import java.util.Locale
 import kotlin.math.roundToInt
-
-private sealed interface Row_ {
-    val label: String
-    val hint: String?
-}
-
-private class ToggleRow(override val label: String, override val hint: String?, val on: Boolean, val flip: () -> Unit) : Row_
-private class ValueRow(override val label: String, override val hint: String?, val value: String, val onTap: (() -> Unit)? = null) : Row_
-private class ActionRow(override val label: String, override val hint: String?, val cta: String, val act: () -> Unit) : Row_
-private class SegRow<T>(override val label: String, override val hint: String?, val opts: List<Pair<T, String>>, val cur: T, val pick: (T) -> Unit) : Row_
 
 private class SettingsGroup(val title: String, val icon: Lucide, val rows: List<Row_>, val custom: (@Composable () -> Unit)? = null, val weight: Int = rows.size, val key: String? = null)
 
@@ -85,38 +71,20 @@ fun SettingsScreen(m: AppModel) {
     val groups = listOf(
         SettingsGroup("Appearance", Lucide.Sun, listOf(
             ToggleRow("Dark theme", "Sketches keep their cream paper", dark) { set { copy(dark = !dark) } },
-            ToggleRow("Larger reading text", "Lifts sketch prose and list titles; menus stay put", s.bigText) { set { copy(bigText = !bigText) } },
             ToggleRow("Reduce motion", "Screens switch instantly; presses stop springing", s.reduceMotion) { set { copy(reduceMotion = !reduceMotion) } },
-            SegRow("Thumbnails", "Whole keeps the Sketchplanations mark in view", listOf(false to "Cropped", true to "Whole sketch"), s.thumbWhole) { v -> set { copy(thumbWhole = v) } },
             SegRow("Typeface", "Applies to the whole app, including the sketch captions",
                 FontPack.entries.map { it to it.label }, s.font) { v -> set { copy(font = v) } },
-            SegRow("Today's layout", "A swipe deck one card at a time, or a scrolling feed", listOf(HomeLayout.Deck to "Swipe deck", HomeLayout.Feed to "Feed"), s.homeLayout) { v -> set { copy(homeLayout = v) } },
-        ), weight = 9),
-        SettingsGroup("Reading", Lucide.Link, listOf(
-            SegRow("Links in the text", "How a link looks inside a sketch’s words", listOf(LinkStyle.Badge to "Badges", LinkStyle.Underline to "Underlined"), s.linkStyle) { v -> set { copy(linkStyle = v) } },
-            SegRow("Open external links in", "Sketch notes link out to books, papers and other sites", listOf(false to "In-app", true to "Browser"), s.extBrowser) { v -> set { copy(extBrowser = v) } },
-            ToggleRow("Letter jump rail", "The A–Z scrubber in Archive when sorting alphabetically", s.railLetters) { set { copy(railLetters = !railLetters) } },
-            ToggleRow("Year jump rail", "The scrubber in Archive when sorting by date", s.railYears) { set { copy(railYears = !railYears) } },
-            ToggleRow("Show every letter", "Keeps the rail complete, with empty letters greyed out", s.railAll) { set { copy(railAll = !railAll) } },
-            ToggleRow("Save recent searches", "Kept on this device only", s.showRecents) { set { copy(showRecents = !showRecents) } },
-        ), weight = 9),
+        )),
+        // Each screen keeps its own settings under the sliders in its top bar; these are the same.
+        SettingsGroup("Screens", Lucide.Today, Options.entries.map { o ->
+            ActionRow(o.title, optionRows(m, o).joinToString(", ") { it.label.lowercase() }.replaceFirstChar { it.uppercase() }, "Open") { m.options = o }
+        }, weight = 10),
         SettingsGroup("Offline", Lucide.Download, listOf(
             ToggleRow("Keep new sketches offline", "Each new sketch arrives ready to read", s.autoDl) { set { copy(autoDl = !autoDl) } },
             ToggleRow("Wi-Fi only", "Never use mobile data for offline copies", s.wifiOnly) { set { copy(wifiOnly = !wifiOnly) } },
             ToggleRow("High-resolution images", "Bigger files, better zoom", s.hd) { set { copy(hd = !hd) } },
             ToggleRow("Images on Wi-Fi only", "On mobile data a sketch waits behind a Load image button", s.imgWifiOnly) { set { copy(imgWifiOnly = !imgWifiOnly) } },
         )),
-        SettingsGroup("Podcast", Lucide.Mic, listOf(
-            SegRow("Playback speed", "Applies to every episode", listOf(1f to "1×", 1.25f to "1.25×", 1.5f to "1.5×", 2f to "2×"), s.speed) { v -> set { copy(speed = v) } },
-            SegRow("Skip back", "The left button on the player", listOf(10 to "10s", 15 to "15s", 30 to "30s"), s.skipBack) { v -> set { copy(skipBack = v) } },
-            SegRow("Skip forward", "The right button on the player", listOf(15 to "15s", 30 to "30s", 45 to "45s"), s.skipFwd) { v -> set { copy(skipFwd = v) } },
-            SegRow("Sleep timer", "Fades out and pauses", listOf(0 to "Off", 15 to "15m", 30 to "30m", 60 to "1h"), s.sleep) { v -> m.setSleep(v) },
-            ToggleRow("Play the next episode", "Rolls straight on when one finishes", s.continuous) { set { copy(continuous = !continuous) } },
-            ToggleRow("Delete after listening", "Frees the space once you reach the end", s.autoDelete) { set { copy(autoDelete = !autoDelete) } },
-            ToggleRow("Play in the background", "Keeps playing with the screen off and shows controls on the lock screen", s.bgPlay) { set { copy(bgPlay = !bgPlay) } },
-            ToggleRow("Pause for calls", "Stops on an incoming call and resumes after", s.pauseOnCall) { set { copy(pauseOnCall = !pauseOnCall) } },
-            ToggleRow("Stop when leaving the episode", "Off by default, so audio follows you around the app", s.stopOnLeave) { set { copy(stopOnLeave = !stopOnLeave) } },
-        ), weight = 14),
         SettingsGroup("Storage", Lucide.Disk, emptyList(), custom = @Composable { Storage(m); Spacer(Modifier.height(18.dp)); Destructive(m) }, weight = 13, key = "storage"),
         SettingsGroup("App", Lucide.Info, listOf(
             ValueRow("Version", "Sketchplanations reader", BuildConfig.VERSION_NAME) { m.tapVersion() },
@@ -162,38 +130,6 @@ private fun GroupCard(m: AppModel, g: SettingsGroup) {
             g.custom?.invoke()
             if (g.rows.isNotEmpty()) Column(Modifier.padding(vertical = 4.dp)) { g.rows.forEach { SettingRow(it) } }
         }
-    }
-}
-
-@Composable
-private fun SettingRow(r: Row_) {
-    Column {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                .then(if (r is ValueRow && r.onTap != null) Modifier.noRippleClick(r.onTap) else Modifier)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                T(r.label, sans(15, 600, 1.35f))
-                if (r.hint != null) { Spacer(Modifier.height(2.dp)); T(r.hint!!, sans(13, 400, 1.45f), color = Sk.colors.textTertiary) }
-            }
-            Spacer(Modifier.width(14.dp))
-            when (r) {
-                is ToggleRow -> Toggle(r.on, r.flip, r.label)
-                is ValueRow -> T(r.value, mono(14), color = Sk.colors.textTertiary)
-                is ActionRow -> Chip(r.cta, r.act, height = 34.dp, hPad = 14.dp, style = sans(13, 600))
-                else -> {}
-            }
-        }
-        if (r is SegRow<*>) SegOptions(r)
-    }
-}
-
-@Composable
-private fun <T> SegOptions(r: SegRow<T>) {
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        r.opts.forEach { (v, label) -> Chip(label, { r.pick(v) }, Modifier.weight(1f), on = v == r.cur, hPad = 4.dp) }
     }
 }
 

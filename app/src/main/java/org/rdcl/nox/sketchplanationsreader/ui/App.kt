@@ -79,6 +79,9 @@ import org.rdcl.nox.sketchplanationsreader.ui.screens.SettingsScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.TagScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.TodayScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.LinkSheet
+import org.rdcl.nox.sketchplanationsreader.ui.screens.OptionsSheet
+import org.rdcl.nox.sketchplanationsreader.ui.screens.title
+import org.rdcl.nox.sketchplanationsreader.state.Options
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ZoomViewer
 import org.rdcl.nox.sketchplanationsreader.ui.theme.EaseOut
 import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
@@ -101,6 +104,16 @@ private val menuItems = listOf(
     MenuItem("About this app", Lucide.Info) { it.go(Screen.About) },
 )
 
+/** The settings sheet a screen offers in its top bar. */
+private val Screen.options get() = when (this) {
+    Screen.Today -> Options.Today
+    Screen.Detail -> Options.Reading
+    Screen.Archive, Screen.Tag -> Options.Archive
+    Screen.Search -> Options.Search
+    Screen.Podcast, Screen.Episode -> Options.Podcast
+    else -> null
+}
+
 /** Identifies a history entry: its depth, its screen and what it shows. */
 private fun AppModel.frameKey() = "${stack.size}/$screen/" + when (screen) {
     Screen.Episode -> ep.toString()
@@ -118,11 +131,12 @@ fun App(m: AppModel) {
         // sw600dp: a phone in landscape stays a phone; a tablet either way up is a tablet.
         val tablet = minOf(maxWidth, maxHeight) >= 600.dp
         CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole, LocalImageSource provides m.downloads::image) {
-            BackHandler(enabled = m.linkSheet != null || m.zoomUrl != null || m.confirm != null || m.egg || m.menu || m.canGoBack()) {
+            BackHandler(enabled = m.options != null || m.linkSheet != null || m.zoomUrl != null || m.confirm != null || m.egg || m.menu || m.canGoBack()) {
                 when {
                     m.egg -> m.egg = false
                     m.confirm != null -> m.confirm = null
                     m.linkSheet != null -> m.linkSheet = null
+                    m.options != null -> m.options = null
                     m.zoomUrl != null -> m.zoomUrl = null
                     m.menu -> m.menu = false
                     else -> m.back()
@@ -195,6 +209,7 @@ private fun AppBar(m: AppModel, tablet: Boolean) {
         Row(Modifier.height(56.dp).fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (m.stack.isNotEmpty()) BarIcon(Lucide.Back, "Back", { m.back() }) else Spacer(Modifier.width(8.dp))
             T(title, sans(20, 800, 1.2f, -0.01f), Modifier.weight(1f).padding(start = 8.dp), maxLines = 1)
+            m.screen.options?.let { o -> BarIcon(Lucide.Sliders, "${o.title} settings", { m.options = o }) }
             if (m.screen != Screen.Search) BarIcon(Lucide.Search, "Search", { m.go(Screen.Search) })
             BarIcon(Lucide.More, "More", { m.menu = true })
         }
@@ -303,6 +318,7 @@ private fun Overlays(m: AppModel, tablet: Boolean) {
 
     m.zoomUrl?.let { ZoomViewer(m, it) }
     m.linkSheet?.let { LinkSheet(m, it) }
+    m.options?.let { OptionsSheet(m, it) }
     m.confirm?.let { ConfirmDialog(it, onNo = { m.confirm = null }, onYes = { m.confirm = null; it.act() }) }
     if (m.egg) EasterEgg(onClose = { m.egg = false })
 
