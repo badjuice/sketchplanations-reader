@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -109,7 +110,14 @@ fun PodcastScreen(m: AppModel) {
                             Column(Modifier.weight(1f)) {
                                 T(e.title, sans(16, 700, 1.3f))
                                 Spacer(Modifier.height(4.dp))
-                                T(listOf(e.code, e.lengthLabel, e.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = Sk.colors.textTertiary)
+                                val left = m.leftIn(i)
+                                T(listOf(e.code, left?.let { "${(it + 59) / 60} min left" } ?: e.lengthLabel, e.dateLabel).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = if (left != null) Sk.colors.accentAlt else Sk.colors.textTertiary)
+                                if (left != null) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Box(Modifier.fillMaxWidth(.6f).height(4.dp).clip(Pill).background(Sk.colors.rule)) {
+                                        Box(Modifier.fillMaxWidth(m.posFor(i)).fillMaxHeight().background(Sk.colors.accentAlt))
+                                    }
+                                }
                             }
                             Box(
                                 Modifier.size(38.dp).hardShadow(Shadow.sm, Sk.colors.shadowInk, CircleShape).clip(CircleShape)

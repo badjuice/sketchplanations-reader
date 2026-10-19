@@ -1,5 +1,7 @@
 package org.rdcl.nox.sketchplanationsreader.ui.screens
 
+import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
+import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -93,6 +95,23 @@ fun TodayScreen(m: AppModel) {
         if (m.settings.homeLayout == HomeLayout.Deck) Deck(m, deck)
         else Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             deck.forEachIndexed { i, s -> SketchCard(s, i == 0, Modifier.fillMaxWidth(), 212.dp) { m.open(s.uid) } }
+        }
+
+        val recent = m.recentlyRead(8)
+        if (recent.isNotEmpty()) {
+            InkRule()
+            T("Continue reading", sans(21, 800, 1.3f), Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 10.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                recent.forEach { r ->
+                    InkCard(Modifier.width(140.dp).padding(end = 3.dp, bottom = 3.dp), shadow = Shadow.sm, radius = 12.dp) {
+                        Column(Modifier.noRippleClick({ m.open(r.uid) })) {
+                            ArtBlock(Modifier.fillMaxWidth().height(88.dp), radius = 0.dp, border = false, framed = true, image = r.image)
+                            Box(Modifier.fillMaxWidth().height(2.dp).background(Art.line))
+                            T(r.title, sans(14, 700, 1.3f), Modifier.padding(10.dp), maxLines = 2)
+                        }
+                    }
+                }
+            }
         }
 
         InkRule()

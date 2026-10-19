@@ -273,6 +273,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             reconcileOffline()
             ep = ep.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
             audioEp = audioEp.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
+            // Nothing is loaded in the player yet, so show where the current episode was left.
+            if (!playing && audio.player == null) episodes.getOrNull(audioEp)?.let { e ->
+                pos = ((library.epPos[e.guid] ?: 0).toFloat() / seconds(e)).coerceIn(0f, 1f)
+            }
         }
     }
 
@@ -371,6 +375,23 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (uid !in byUid) { openUrl("https://sketchplanations.com/$uid"); return }
         moveTo(Screen.Detail, push = true)
         detail = uid
+        markRead(uid)
+    }
+
+    /** Archive asks for every row, so the lookup set is rebuilt only when the list changes. */
+    private var readCache = emptyList<String>() to emptySet<String>()
+    fun isRead(uid: String): Boolean {
+        val r = library.read
+        if (readCache.first !== r) readCache = r to r.toHashSet()
+        return uid in readCache.second
+    }
+
+    /** Most recently opened sketches, newest first. */
+    fun recentlyRead(n: Int) = library.read.asReversed().asSequence().mapNotNull { byUid[it] }.take(n).toList()
+
+    private fun markRead(uid: String) {
+        if (library.read.lastOrNull() == uid) return
+        updateLibrary { copy(read = (read - uid + uid).takeLast(5000)) }
     }
 
     fun openEp(i: Int) {
@@ -387,13 +408,13 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /** Swiping between sketches changes the one shown without adding to the back stack. */
     fun showSketch(uid: String) {
-        if (uid in byUid) detail = uid
+        if (uid in byUid) { detail = uid; markRead(uid) }
     }
 
     /** Moves the open sketch [delta] places through the list: +1 is older, -1 is newer. */
     fun stepSketch(delta: Int) {
         val i = sketches.indexOfFirst { it.uid == detail }
-        sketches.getOrNull(i + delta)?.let { detail = it.uid }
+        sketches.getOrNull(i + delta)?.let { detail = it.uid; markRead(it.uid) }
     }
 
     fun openTag(uid: String) {
@@ -774,14 +795,45 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         flash("Episode deleted")
     }
 
-    /** Position shown for an episode: live for the one in the player, the start for any other. */
-    fun posFor(i: Int) = if (i == audioEp) pos else 0f
+    /** Position shown for an episode: live for the one in the player, else where it was left. */
+    fun posFor(i: Int): Float {
+        if (i == audioEp) return pos
+        val e = episodes.getOrNull(i) ?: return 0f
+        return ((library.epPos[e.guid] ?: 0).toFloat() / seconds(e)).coerceIn(0f, 1f)
+    }
+
+    /** Seconds left in an episode that was started and not finished, else null. */
+    fun leftIn(i: Int): Int? {
+        val e = episodes.getOrNull(i) ?: return null
+        val at = if (i == audioEp) (pos * seconds(e)).toInt() else library.epPos[e.guid] ?: return null
+        return (seconds(e) - at).takeIf { at > 0 && it > 0 }
+    }
+
+    /**
+     * Notes where the loaded episode is. The first and last 30 seconds count as not started and
+     * finished, so a resume never lands in the closing credits.
+     */
+    private fun savePos() {
+        val e = episodes.getOrNull(audioEp) ?: return
+        val at = (pos * seconds(e)).toInt()
+        val keep = at >= 30 && at < seconds(e) - 30
+        val cur = library.epPos[e.guid]
+        if (keep && cur == at || !keep && cur == null) return
+        updateLibrary { copy(epPos = if (keep) epPos + (e.guid to at) else epPos - e.guid) }
+    }
+
+    /** Switches the player to episode [i], starting where it was left. */
+    private fun load(i: Int) {
+        savePos()
+        val f = posFor(i)
+        audioEp = i; pos = f; actualSeconds = 0
+    }
 
     fun togglePlay(i: Int = ep) {
         val e = episodes.getOrNull(i) ?: return
         if (playing && i == audioEp) { pause(); return }
         if (!isEpOffline(e.guid) && !online) { flash("Offline. Keep this episode offline to listen without a connection"); return }
-        if (i != audioEp) { audioEp = i; pos = 0f; actualSeconds = 0 }
+        if (i != audioEp) load(i)
         play()
     }
 
@@ -826,6 +878,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun tick() {
         playJob?.cancel()
         playJob = viewModelScope.launch {
+            var ticks = 0
             while (isActive) {
                 val p = audio.player ?: break
                 val e = episodes.getOrNull(audioEp) ?: break
@@ -838,6 +891,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     lastChapter = chapter
                     p.replaceMediaItem(p.currentMediaItemIndex, AudioPlayer.item(e, loaded, chapter))
                 }
+                // Every 10 seconds, so a crash or a swipe-away loses little.
+                if (++ticks % 40 == 0) savePos()
                 sleepEndsAt?.let { if (System.currentTimeMillis() >= it) { pause(); flash("Paused by the sleep timer"); return@launch } }
                 if (!p.playWhenReady) break
                 delay(250)
@@ -864,6 +919,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun pause() {
         playing = false
         audio.player?.pause()
+        savePos()
         playJob?.cancel()
         sleepEndsAt = null
     }
@@ -871,6 +927,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun finished() {
         val e = episodes.getOrNull(audioEp)
         pause()
+        e?.let { done -> updateLibrary { copy(epPos = epPos - done.guid) } }
         if (e != null && settings.autoDelete && isEpOffline(e.guid)) {
             audio.player?.clearMediaItems()
             downloads.deleteEpisode(e.guid)
@@ -880,7 +937,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         // Newest first, so the next episode in order is the one before it in the list.
         val next = audioEp - 1
         if (settings.continuous && next >= 0) {
-            audioEp = next; pos = 0f; actualSeconds = 0
+            load(next)
             if (isEpOffline(episodes[next].guid) || online) play()
         } else {
             pos = 0f
@@ -889,7 +946,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun seek(i: Int, fraction: Float) {
         val f = fraction.coerceIn(0f, 1f)
-        if (i != audioEp) { if (playing) pause(); audioEp = i; actualSeconds = 0 }
+        if (i != audioEp) { if (playing) pause(); load(i) }
         pos = f
         val p = audio.player ?: return
         val e = episodes.getOrNull(i) ?: return

@@ -55,6 +55,10 @@ data class Library(
     val epFav: List<String> = emptyList(),
     val epOffline: List<String> = emptyList(),
     val recents: List<String> = emptyList(),
+    /** Where each episode was left, in seconds, by guid. Finished episodes drop out. */
+    val epPos: Map<String, Int> = emptyMap(),
+    /** Sketch uids in the order they were last opened, oldest first. */
+    val read: List<String> = emptyList(),
     val onboarded: Boolean = false,
     val indexBuilt: Boolean = false,
     val lastSync: Long = 0L,
@@ -132,6 +136,8 @@ class Store(private val context: Context) {
         put("favourites", strings(l.favourites)); put("offline", strings(l.offline)); put("gallery", strings(l.gallery))
         put("epFav", strings(l.epFav)); put("epOffline", strings(l.epOffline))
         put("recents", strings(l.recents))
+        put("epPos", JSONObject().apply { l.epPos.forEach { (k, v) -> put(k, v) } })
+        put("read", strings(l.read))
         put("onboarded", l.onboarded); put("indexBuilt", l.indexBuilt); put("lastSync", l.lastSync)
     }
 
@@ -139,6 +145,8 @@ class Store(private val context: Context) {
         return Library(
             favourites = o.strings("favourites"), offline = o.strings("offline"), gallery = o.strings("gallery"),
             epFav = o.strings("epFav"), epOffline = o.strings("epOffline"), recents = o.strings("recents"),
+            epPos = o.optJSONObject("epPos")?.let { p -> p.keys().asSequence().associateWith { p.optInt(it) } } ?: emptyMap(),
+            read = o.strings("read"),
             onboarded = o.optBoolean("onboarded", false), indexBuilt = o.optBoolean("indexBuilt", false),
             lastSync = o.optLong("lastSync", 0L),
         )

@@ -474,6 +474,7 @@ fun SketchRow(
     title: String, meta: String, onClick: () -> Unit, image: SketchImage? = null,
     offline: Boolean = false, gallery: Boolean = false, hd: Boolean = true,
     showPill: Boolean = false, titleSize: Int = 16, thumbW: Dp = 78.dp, thumbH: Dp = 62.dp,
+    read: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Column {
@@ -482,9 +483,9 @@ fun SketchRow(
                 Thumb(thumbW, thumbH, image, offline, gallery, hd)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    T(title, sans(titleSize, 700, 1.3f))
+                    T(title, sans(titleSize, 700, 1.3f), color = if (read) Sk.colors.textSecondary else Sk.colors.textPrimary)
                     Spacer(Modifier.height(4.dp))
-                    T(meta, mono(12), color = Sk.colors.textTertiary)
+                    T(if (read) "$meta · read ✓" else meta, mono(12), color = Sk.colors.textTertiary)
                 }
                 if (showPill && offline) {
                     Spacer(Modifier.width(8.dp))

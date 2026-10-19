@@ -188,7 +188,7 @@ private fun ArchiveRow(m: AppModel, s: Sketch) {
     SketchRow(
         s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
         offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd,
-        showPill = true, titleSize = if (m.settings.bigText) 18 else 16,
+        showPill = true, titleSize = if (m.settings.bigText) 18 else 16, read = m.isRead(s.uid),
     )
 }
 

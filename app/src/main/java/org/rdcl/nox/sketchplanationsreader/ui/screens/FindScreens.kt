@@ -81,7 +81,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 private fun ResultRow(m: AppModel, s: Sketch, pill: Boolean = false) {
     SketchRow(
         s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
-        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd, showPill = pill,
+        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd, showPill = pill, read = m.isRead(s.uid),
         titleSize = if (m.settings.bigText) 18 else 16,
     )
 }
