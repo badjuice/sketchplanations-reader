@@ -57,7 +57,6 @@ enum class Screen(val title: String, val top: Boolean) {
     Search("Search", true),
     Library("Library", true),
     Podcast("Podcast", true),
-    PodLibrary("Podcast library", true),
     Prints("Support the author", true),
     About("About this app", true),
     Settings("Settings", true),
@@ -133,7 +132,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var archiveTopics by mutableStateOf(false)
     var catByFreq by mutableStateOf(true)
     var libFavTab by mutableStateOf(true)
-    var podFavTab by mutableStateOf(true)
     var deckIdx by mutableIntStateOf(0)
 
     // Search
@@ -294,7 +292,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         when (s) {
             Screen.Archive -> { archiveTopics = false; catByFreq = true; sort = Sort.Date; asc = false }
             Screen.Library -> libFavTab = true
-            Screen.PodLibrary -> podFavTab = true
             Screen.Search -> { searchJob?.cancel(); q = ""; phase = SearchPhase.Idle; results = emptyList() }
             Screen.About -> acc = "what"
             else -> {}
@@ -539,7 +536,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     // ---- sketch actions ------------------------------------------------------------------
 
     private fun downloadBlocked(): Boolean {
-        if (!online) { flash("Offline. Connect to download"); return true }
+        if (!online) { flash("Offline. Connect to keep it offline"); return true }
         if (conn == Conn.Mobile && settings.wifiOnly) { flash("Wi-Fi only is on. Settings › Offline"); return true }
         return false
     }
@@ -563,11 +560,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             try {
                 downloads.saveImages(s.image, renditions()) { pct = (it * 100).roundToInt() }
                 updateLibrary { if (uid in offline) this else copy(offline = offline + uid) }
-                pulse("dl", "Downloaded")
+                pulse("dl", "Kept offline")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                flash("Download failed. Check the connection and try again")
+                flash("Couldn't keep it offline. Check the connection and try again")
             } finally {
                 dl = null
                 refreshSizes()
@@ -623,7 +620,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun retryFetch(uid: String) {
-        if (online) toggleDownload(uid) else flash("Still offline. Connect to download this one")
+        if (online) toggleDownload(uid) else flash("Still offline. Connect to load this one")
     }
 
     fun reveal(uid: String) {
@@ -667,11 +664,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             try {
                 downloads.saveEpisode(guid, url) { epPct = (it * 100).roundToInt() }
                 updateLibrary { if (guid in epOffline) this else copy(epOffline = epOffline + guid) }
-                pulse("epdl", "Downloaded")
+                pulse("epdl", "Kept offline")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                flash("Download failed. Check the connection and try again")
+                flash("Couldn't keep it offline. Check the connection and try again")
             } finally {
                 epDl = null
                 refreshSizes()
@@ -693,7 +690,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun togglePlay(i: Int = ep) {
         val e = episodes.getOrNull(i) ?: return
         if (playing && i == audioEp) { pause(); return }
-        if (!isEpOffline(e.guid) && !online) { flash("Offline. Download this episode to listen"); return }
+        if (!isEpOffline(e.guid) && !online) { flash("Offline. Keep this episode offline to listen without a connection"); return }
         if (i != audioEp) { audioEp = i; pos = 0f; actualSeconds = 0 }
         play()
     }
@@ -770,7 +767,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
         override fun onPlayerError(error: PlaybackException) {
             playing = false
-            flash(if (!online) "Offline. Download this episode to listen" else "Couldn't play this episode. Try again")
+            flash(if (!online) "Offline. Keep this episode offline to listen without a connection" else "Couldn't play this episode. Try again")
         }
     }
 
@@ -847,23 +844,23 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun askBulk(all: Boolean) {
-        if (!online) return flash("Offline. Connect to download")
+        if (!online) return flash("Offline. Connect first")
         val allEpisodesMB = episodes.sumOf(::epMB)
         ask(if (all) Confirm(
-            "Download every sketch?",
+            "Keep every sketch offline?",
             "About ${(sketches.size * mbSketch).roundToInt()} MB for all ${sketches.size} sketches. Runs on Wi-Fi only and pauses if you leave.",
-            "Download all",
+            "Keep all offline",
         ) { bulk(true) } else Confirm(
-            "Download every episode?",
+            "Keep every episode offline?",
             "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes. Wi-Fi only, and it takes a while.",
-            "Download anyway",
+            "Keep all offline",
         ) { bulk(false) })
     }
 
     /** Downloads everything not yet stored, one item at a time; stops if Wi-Fi goes. */
     private fun bulk(all: Boolean) {
-        if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi. Bulk downloads never use mobile data")
-        if (bulkJob?.isActive == true) return flash("A download is already running")
+        if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi. Keeping everything offline never uses mobile data")
+        if (bulkJob?.isActive == true) return flash("Already keeping things offline. Wait for it to finish")
         bulkJob = viewModelScope.launch {
             var failed = 0
             if (all) {
@@ -877,7 +874,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     if (i % 20 == 0) refreshSizes()
                 }
                 bulkSketches = null
-                pulse("bulkS", if (failed == 0) "Downloaded" else "$failed failed")
+                pulse("bulkS", if (failed == 0) "Done" else "$failed failed")
             } else {
                 val todo = episodes.filter { it.guid !in library.epOffline && it.audioUrl != null }
                 todo.forEachIndexed { i, e ->
@@ -888,7 +885,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     refreshSizes()
                 }
                 bulkEpisodes = null
-                pulse("bulkE", if (failed == 0) "Downloaded" else "$failed failed")
+                pulse("bulkE", if (failed == 0) "Done" else "$failed failed")
             }
             refreshSizes()
         }
@@ -898,19 +895,19 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun mb(v: Double) = String.format(java.util.Locale.UK, "%.1f MB", v)
 
     fun askDeleteSketches() = ask(Confirm(
-        "Delete downloaded sketches?",
+        "Delete offline sketches?",
         "This removes ${plural(library.offline.size, "sketch", "sketches")} (${mb(sketchMB)}). Your favourites stay.",
         "Delete sketches",
-    ) { downloads.deleteAllImages(); updateLibrary { copy(offline = emptyList()) }; refreshSizes(); flash("Downloaded sketches deleted") })
+    ) { downloads.deleteAllImages(); updateLibrary { copy(offline = emptyList()) }; refreshSizes(); flash("Offline sketches deleted") })
 
     fun askDeleteEpisodes() = ask(Confirm(
-        "Delete downloaded episodes?",
+        "Delete offline episodes?",
         "This removes ${plural(library.epOffline.size, "episode", "episodes")} (${mb(podMB)}). Your favourites stay.",
         "Delete episodes",
-    ) { audio.player?.clearMediaItems(); downloads.deleteAllEpisodes(); updateLibrary { copy(epOffline = emptyList()) }; refreshSizes(); flash("Downloaded episodes deleted") })
+    ) { audio.player?.clearMediaItems(); downloads.deleteAllEpisodes(); updateLibrary { copy(epOffline = emptyList()) }; refreshSizes(); flash("Offline episodes deleted") })
 
     fun askDeleteAll() = ask(Confirm(
-        "Delete all downloads?",
+        "Delete everything offline?",
         "This removes ${plural(library.offline.size, "sketch", "sketches")} and ${plural(library.epOffline.size, "episode", "episodes")}, ${mb(sketchMB + podMB)} in all. Your favourites stay.",
         "Delete everything",
     ) {
@@ -918,7 +915,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         downloads.deleteAllImages(); downloads.deleteAllEpisodes()
         updateLibrary { copy(offline = emptyList(), epOffline = emptyList()) }
         refreshSizes()
-        flash("Downloads cleared")
+        flash("Offline copies deleted")
     })
 
     fun tapVersion() {

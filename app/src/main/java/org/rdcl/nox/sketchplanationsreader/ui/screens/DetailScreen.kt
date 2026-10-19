@@ -464,7 +464,7 @@ fun OfflinePanel(onRetry: () -> Unit) {
                 T("You're offline", sans(18, 800))
             }
             Spacer(Modifier.height(8.dp))
-            T("The words are here, but this drawing hasn't been downloaded or seen before, so there's no copy on the device. Connect and it'll load in a second.",
+            T("The words are here, but this drawing hasn't been kept offline or seen before, so there's no copy on the device. Connect and it'll load in a second.",
                 sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
             Spacer(Modifier.height(14.dp))
             InkButton(onRetry, height = 40.dp) { fg -> T("Try again", sans(15, 700), color = fg) }
@@ -490,7 +490,7 @@ fun DetailActions(m: AppModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val running = m.dl == d.uid
                 ActionButton(
-                    m.pulseFor("dl") ?: if (off) "Downloaded" else "Download post", if (off) Lucide.Check else Lucide.Download, off,
+                    m.pulseFor("dl") ?: if (off) "Offline" else "Keep offline", if (off) Lucide.Check else Lucide.Download, off,
                     Modifier.weight(1f), progress = if (running) m.pct / 100f else null,
                 ) { m.toggleDownload(d.uid) }
                 ActionButton(m.pulseFor("gal") ?: if (gal) "In gallery" else "Save image", if (gal) Lucide.Check else Lucide.Image, gal, Modifier.weight(1f)) { m.toggleGallery(d.uid) }

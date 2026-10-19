@@ -249,13 +249,13 @@ private fun Storage(m: AppModel) {
             Legend(Sk.colors.penGreen, "Sketches ${mb(m.sketchMB)}")
             Legend(Sk.colors.penBlue, "Episodes ${mb(m.podMB)}")
         }
-        if (lib.offline.isEmpty() && lib.epOffline.isEmpty()) T("nothing downloaded yet ✎", hand(18), Modifier.padding(top = 10.dp), Sk.colors.textTertiary)
+        if (lib.offline.isEmpty() && lib.epOffline.isEmpty()) T("nothing kept offline yet ✎", hand(18), Modifier.padding(top = 10.dp), Sk.colors.textTertiary)
 
         Spacer(Modifier.height(16.dp))
         val last = if (lib.lastSync == 0L) "never" else android.text.format.DateUtils.getRelativeTimeSpanString(lib.lastSync).toString()
         StorageAction("Sync with website", "Checks for new sketches. Also runs on launch when online · last $last", m.syncPct, m.pulseFor("sync") ?: "Sync now") { m.syncWithWebsite() }
-        StorageAction("Download all sketches", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Download") { m.askBulk(true) }
-        StorageAction("Download all episodes", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Download") { m.askBulk(false) }
+        StorageAction("Keep every sketch offline", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Start") { m.askBulk(true) }
+        StorageAction("Keep every episode offline", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Start") { m.askBulk(false) }
     }
 }
 
@@ -289,9 +289,9 @@ private fun StorageAction(label: String, hint: String, pct: Int?, cta: String, o
 private fun Destructive(m: AppModel) {
     val lib = m.library
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        DangerButton("Delete downloaded sketches", mb(m.sketchMB), lib.offline.isNotEmpty(), false) { m.askDeleteSketches() }
-        DangerButton("Delete downloaded episodes", mb(m.podMB), lib.epOffline.isNotEmpty(), false) { m.askDeleteEpisodes() }
-        DangerButton("Delete all downloads", mb(m.sketchMB + m.podMB), lib.offline.isNotEmpty() || lib.epOffline.isNotEmpty(), true) { m.askDeleteAll() }
+        DangerButton("Delete offline sketches", mb(m.sketchMB), lib.offline.isNotEmpty(), false) { m.askDeleteSketches() }
+        DangerButton("Delete offline episodes", mb(m.podMB), lib.epOffline.isNotEmpty(), false) { m.askDeleteEpisodes() }
+        DangerButton("Delete everything offline", mb(m.sketchMB + m.podMB), lib.offline.isNotEmpty() || lib.epOffline.isNotEmpty(), true) { m.askDeleteAll() }
     }
 }
 

@@ -69,7 +69,7 @@ private const val REPORT = "$REPO/issues"
 /** All credits in one place. The podcast hosts are credited here and nowhere else. */
 private val sections = listOf(
     Section("what", "What this app is", listOf(
-        "An unofficial reader for Sketchplanations. It fetches the sketches and their words, organises them for a phone, and keeps whatever you download available offline.",
+        "An unofficial reader for Sketchplanations. It fetches the sketches and their words, organises them for a phone, and keeps whatever you choose available offline.",
         "That is the whole job. No account, no feed, no ads. It reads what the site already publishes."), emptyList()),
     Section("who", "Who made the sketches", listOf(
         "Every sketch, and every word explaining it, is by Jono Hey. He has drawn one a week since 2011 and publishes them free on sketchplanations.com.",

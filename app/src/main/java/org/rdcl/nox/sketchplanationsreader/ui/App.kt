@@ -76,7 +76,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.screens.EasterEgg
 import org.rdcl.nox.sketchplanationsreader.ui.screens.EpisodeScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.LibraryScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.OnboardingScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.PodLibraryScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastAboutScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastContactScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.PodcastScreen
@@ -169,7 +168,6 @@ private fun ScreenContent(m: AppModel, s: Screen) {
         Screen.Search -> SearchScreen(m)
         Screen.Library -> LibraryScreen(m)
         Screen.Podcast -> PodcastScreen(m)
-        Screen.PodLibrary -> PodLibraryScreen(m)
         Screen.Episode -> EpisodeScreen(m)
         Screen.Tag -> TagScreen(m)
         Screen.PodcastAbout -> PodcastAboutScreen(m)

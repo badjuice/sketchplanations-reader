@@ -45,6 +45,8 @@ import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary as Sketch
 import org.rdcl.nox.sketchplanationsreader.ui.date
 import org.rdcl.nox.sketchplanationsreader.ui.image
 import org.rdcl.nox.sketchplanationsreader.ui.num
+import org.rdcl.nox.sketchplanationsreader.ui.code
+import org.rdcl.nox.sketchplanationsreader.ui.lengthLabel
 import androidx.compose.runtime.produceState
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
 import org.rdcl.nox.sketchplanationsreader.state.SearchPhase
@@ -293,36 +295,63 @@ fun TagScreen(m: AppModel) {
 
 // ---- Library ------------------------------------------------------------------------------
 
+/**
+ * Favourites are bookmarks; Offline is what's stored on the phone. Each tab lists sketches first,
+ * then episodes.
+ */
 @Composable
 fun LibraryScreen(m: AppModel) {
     val lib = m.library
-    val ids = if (m.libFavTab) lib.favourites else lib.offline
-    val rows = ids.mapNotNull { m.byUid[it] }
+    val fav = m.libFavTab
+    val sketches = (if (fav) lib.favourites else lib.offline).mapNotNull { m.byUid[it] }
+    val episodes = (if (fav) lib.epFav else lib.epOffline).mapNotNull { g -> m.episodes.firstOrNull { it.guid == g } }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Favourites ${lib.favourites.size}", { m.libFavTab = true }, on = m.libFavTab)
-            Chip("Offline ${lib.offline.size}", { m.libFavTab = false }, on = !m.libFavTab)
+            Chip("Favourites ${lib.favourites.size + lib.epFav.size}", { m.libFavTab = true }, on = fav)
+            Chip("Offline ${lib.offline.size + lib.epOffline.size}", { m.libFavTab = false }, on = !fav)
         }
         Hairline()
         ScreenScroll(m, Modifier.weight(1f)) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 26.dp)) {
-                Columns(rows) { s ->
-                    SketchRow(
-                        s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
-                        offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd,
-                        titleSize = if (m.settings.bigText) 18 else 16, thumbW = 72.dp, thumbH = 58.dp,
-                        trailing = {
-                            DeleteButton(if (m.libFavTab) "Remove from favourites" else "Delete offline copy") {
-                                if (m.libFavTab) m.removeFavourite(s.uid) else m.removeOffline(s.uid)
-                            }
-                        },
-                    )
+                if (!fav && (sketches.isNotEmpty() || episodes.isNotEmpty())) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        T(String.format(java.util.Locale.UK, "%.0f MB on this phone", m.sketchMB + m.podMB), hand(18), color = Sk.colors.textSecondary)
+                        TextLink("Storage", { m.go(Screen.Settings) }, sans(14, 700))
+                    }
                 }
-                if (rows.isEmpty()) {
+                if (sketches.isNotEmpty()) {
+                    Eyebrow("Sketches · ${sketches.size}", Modifier.padding(top = 14.dp, bottom = 2.dp))
+                    Columns(sketches) { s ->
+                        SketchRow(
+                            s.title, "${s.num} · ${s.date}", { m.open(s.uid) }, image = s.image,
+                            offline = m.isOffline(s.uid), gallery = m.inGallery(s.uid), hd = m.settings.hd,
+                            titleSize = if (m.settings.bigText) 18 else 16, thumbW = 72.dp, thumbH = 58.dp,
+                            trailing = {
+                                DeleteButton(if (fav) "Remove from favourites" else "Delete offline copy") {
+                                    if (fav) m.removeFavourite(s.uid) else m.removeOffline(s.uid)
+                                }
+                            },
+                        )
+                    }
+                }
+                if (episodes.isNotEmpty()) {
+                    Eyebrow("Episodes · ${episodes.size}", Modifier.padding(top = 18.dp, bottom = 2.dp))
+                    Columns(episodes) { e ->
+                        EpisodeRow(
+                            e, listOf(e.code, e.lengthLabel).filter { it.isNotEmpty() }.joinToString(" · "),
+                            { m.openEp(m.episodes.indexOf(e)) },
+                        ) {
+                            DeleteButton(if (fav) "Remove from favourites" else "Delete offline copy") {
+                                if (fav) m.removeEpFav(e.guid) else m.removeEpOffline(e.guid)
+                            }
+                        }
+                    }
+                }
+                if (sketches.isEmpty() && episodes.isEmpty()) {
                     EmptyState(
                         "Nothing here yet",
-                        if (m.libFavTab) "Tap Favourite on a sketch and it waits for you here. A favourite is a bookmark; nothing is downloaded."
-                        else "Download a sketch and it waits for you here, readable with no signal.",
+                        if (fav) "Tap Favourite on a sketch or an episode to bookmark it here. Nothing is stored on the phone."
+                        else "Tap Keep offline on a sketch or an episode and it opens here with no signal.",
                         "Browse the archive", { m.go(Screen.Archive) },
                     )
                 }

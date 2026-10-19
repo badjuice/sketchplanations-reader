@@ -104,7 +104,7 @@ fun PodcastScreen(m: AppModel) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Play", { m.playLatest() }, Modifier.weight(1f), icon = Lucide.Play)
-                OutlinePill("Library", Lucide.Library) { m.go(Screen.PodLibrary) }
+                OutlinePill("Library", Lucide.Library) { m.go(Screen.Library) }
             }
         }
         InkRule()
@@ -216,7 +216,7 @@ fun EpisodeScreen(m: AppModel) {
                 ActionButton(if (fav) "Favourited" else "Favourite", if (fav) Lucide.StarFilled else Lucide.Star, fav, Modifier.weight(1f)) { m.toggleEpFav(e.guid) }
                 val running = m.epDl == e.guid
                 ActionButton(
-                    m.pulseFor("epdl") ?: if (off) "Downloaded" else "Download", if (off) Lucide.Check else Lucide.Download, off,
+                    m.pulseFor("epdl") ?: if (off) "Offline" else "Keep offline", if (off) Lucide.Check else Lucide.Download, off,
                     Modifier.weight(1f), progress = if (running) m.epPct / 100f else null,
                 ) { m.toggleEpDownload(e.guid) }
             }
@@ -229,7 +229,7 @@ fun EpisodeScreen(m: AppModel) {
                 ) {
                     Icon(Lucide.WifiOffSmall, Sk.colors.penOrangeInk, 18.dp)
                     Spacer(Modifier.width(10.dp))
-                    T("Offline. Download this episode to listen", sans(14, 600, 1.4f))
+                    T("Offline. Keep this episode offline to listen without a connection", sans(14, 600, 1.4f))
                 }
             }
 
@@ -310,57 +310,25 @@ private fun Waveform(pos: Float, onSeek: (Float) -> Unit) {
     }
 }
 
-// ---- Podcast library ----------------------------------------------------------------------
-
+/** An episode in a list: artwork, title, details, and an optional trailing control. */
 @Composable
-fun PodLibraryScreen(m: AppModel) {
-    val lib = m.library
-    val ids = if (m.podFavTab) lib.epFav else lib.epOffline
-    val rows: List<Episode> = ids.mapNotNull { g -> m.episodes.firstOrNull { it.guid == g } }
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp)) {
-            T(String.format(java.util.Locale.UK, "%.1f MB of episodes on this device ✎", m.podMB), hand(18), color = Sk.colors.textSecondary)
-        }
-        InkRule()
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Favourites ${lib.epFav.size}", { m.podFavTab = true }, on = m.podFavTab)
-            Chip("Downloaded ${lib.epOffline.size}", { m.podFavTab = false }, on = !m.podFavTab)
-        }
-        Hairline()
-        ScreenScroll(m, Modifier.weight(1f)) {
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 26.dp)) {
-                Columns(rows) { e ->
-                    Column {
-                        Row(Modifier.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PressRow({ m.openEp(m.episodes.indexOf(e)) }, Modifier.weight(1f)) {
-                                Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    EpisodeSquare(e)
-                                    Spacer(Modifier.width(14.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        T(e.title, sans(16, 700, 1.3f))
-                                        Spacer(Modifier.height(4.dp))
-                                        T(listOf(e.lengthLabel, if (m.podFavTab) e.dateLabel else String.format(java.util.Locale.UK, "%.1f MB", m.epMB(e))).filter { it.isNotEmpty() }.joinToString(" · "), mono(12), color = Sk.colors.textTertiary)
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            DeleteButton(if (m.podFavTab) "Remove from favourites" else "Delete episode") {
-                                if (m.podFavTab) m.removeEpFav(e.guid) else m.removeEpOffline(e.guid)
-                            }
-                        }
-                        Hairline()
+fun EpisodeRow(e: Episode, meta: String, onClick: () -> Unit, trailing: (@Composable () -> Unit)? = null) {
+    Column {
+        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            PressRow(onClick, Modifier.weight(1f)) {
+                Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    EpisodeSquare(e)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        T(e.title, sans(16, 700, 1.3f))
+                        Spacer(Modifier.height(4.dp))
+                        T(meta, mono(12), color = Sk.colors.textTertiary)
                     }
                 }
-                if (rows.isEmpty()) {
-                    EmptyState(
-                        "Nothing here yet",
-                        if (m.podFavTab) "No favourite episodes yet. Tap Favourite on an episode to keep it here."
-                        else "Nothing downloaded. Tap Download on an episode to listen without signal.",
-                        "Browse episodes", { m.go(Screen.Podcast) },
-                    )
-                }
             }
+            if (trailing != null) { Spacer(Modifier.width(12.dp)); trailing() }
         }
+        Hairline()
     }
 }
 
