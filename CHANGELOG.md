@@ -4,12 +4,27 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 [Semantic Versioning](https://semver.org). 0.1.0 was the interactive prototype in Claude Design;
 0.2.0 is the first native build.
 
-## Unreleased
+## 0.5.0 (2026-10-19)
+
+### Added
+
+- Use the Sketchplanations Reader logo as the app icon (39dedac)
+- **nav:** Four tabs and a menu instead of a side drawer (e7f8dff)
+- **archive:** Topics inside Archive, swipe between sketches (fa17457)
+- **library:** One library for sketches and episodes (600dfcc)
+- **sketch:** Three actions plus older and newer buttons (4b11e81)
+- **settings:** Six groups and no dead toggles (38a56c2)
+
+### Fixed
+
+- **search:** Restore the site's searching message verbatim (5f12d60)
 
 ### Documentation
 
 - Add the logo (78d542f)
 - Plain wording without em dashes (ff3c2b4)
+- Regenerate the changelog with the new heading format (384e197)
+- Shorten the README (179685c)
 
 ## 0.4.0 (2026-10-18)
 
