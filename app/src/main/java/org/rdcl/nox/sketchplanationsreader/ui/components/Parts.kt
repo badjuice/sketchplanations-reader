@@ -7,6 +7,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -447,14 +449,15 @@ private fun ThumbTag(text: String, bg: Color, fg: Color) {
 
 /** A list row with a blue wash while pressed. */
 @Composable
-fun PressRow(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+fun PressRow(onClick: () -> Unit, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, content: @Composable RowScope.() -> Unit) {
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
     Row(
         modifier
             .clip(RoundedCornerShape(8.dp))
             .background(if (pressed) Sk.colors.accentAltWash else Color.Transparent)
-            .clickable(src, null, role = Role.Button, onClick = onClick),
+            .combinedClickable(src, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )

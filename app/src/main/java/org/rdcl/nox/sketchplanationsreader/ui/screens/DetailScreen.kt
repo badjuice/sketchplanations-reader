@@ -48,6 +48,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
@@ -213,7 +220,7 @@ private fun SketchPage(m: AppModel, s: SketchSummary) {
             } else {
                 val cut = f.relatedSectionStart.takeIf { f.related.any { it in m.byUid } } ?: f.body.size
                 f.body.take(cut).forEachIndexed { i, b ->
-                    BlockView(b, bodySize, m.settings.linkStyle, standfirst = i == 0 && f.standfirst != null, onLink = onLink)
+                    BlockView(b, bodySize, m.settings.linkStyle, standfirst = i == 0 && f.standfirst != null, onLink = onLink, onLongLink = { m.linkSheet = it })
                 }
 
                 val related = f.related.mapNotNull { m.byUid[it] }
@@ -297,7 +304,7 @@ private fun LinkRow(l: Link, m: AppModel) {
     val badge = badgeOf(l)
     val col = badgeColor(badge)
     val label = (l.target as? LinkTarget.Sketch)?.uid?.let { m.byUid[it]?.title } ?: l.label.ifBlank { hostOf(l) }
-    PressRow({ m.follow(l) },
+    PressRow({ m.follow(l) }, onLongClick = { m.linkSheet = l }, modifier =
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Sk.colors.surfaceCard)
             .border(1.dp, Sk.colors.borderQuiet, RoundedCornerShape(12.dp))) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -316,15 +323,15 @@ private fun LinkRow(l: Link, m: AppModel) {
 
 /** One block of a post: paragraph, heading, list, preformatted text or an inline image. */
 @Composable
-private fun BlockView(b: Block, size: Int, style: LinkStyle, standfirst: Boolean, onLink: (Link) -> Unit) {
+private fun BlockView(b: Block, size: Int, style: LinkStyle, standfirst: Boolean, onLink: (Link) -> Unit, onLongLink: (Link) -> Unit) {
     when (b) {
         is Block.Paragraph -> {
-            RichTextView(b.content, if (standfirst) sans(size + 2, 600, 1.5f) else sans(size, 400, 1.65f), style, onLink)
+            RichTextView(b.content, if (standfirst) sans(size + 2, 600, 1.5f) else sans(size, 400, 1.65f), style, onLink, onLongLink)
             Spacer(Modifier.height(14.dp))
         }
         is Block.Heading -> {
             Spacer(Modifier.height(8.dp))
-            RichTextView(b.content, heading(when (b.level) { 1 -> 24; 2 -> 21; else -> 18 }, 1.3f), style, onLink)
+            RichTextView(b.content, heading(when (b.level) { 1 -> 24; 2 -> 21; else -> 18 }, 1.3f), style, onLink, onLongLink)
             Spacer(Modifier.height(10.dp))
         }
         is Block.ListBlock -> {
@@ -332,7 +339,7 @@ private fun BlockView(b: Block, size: Int, style: LinkStyle, standfirst: Boolean
                 b.items.forEachIndexed { i, item ->
                     Row {
                         T(if (b.ordered) "${i + 1}." else "•", sans(size, 700, 1.65f), Modifier.widthIn(min = if (b.ordered) 26.dp else 18.dp), Sk.colors.textTertiary)
-                        Box(Modifier.weight(1f)) { RichTextView(item, sans(size, 400, 1.65f), style, onLink) }
+                        Box(Modifier.weight(1f)) { RichTextView(item, sans(size, 400, 1.65f), style, onLink, onLongLink) }
                     }
                 }
             }
@@ -351,20 +358,25 @@ private fun BlockView(b: Block, size: Int, style: LinkStyle, standfirst: Boolean
 }
 
 private const val ICON = "icon"
+private const val PAD = "pad"
+
+/** A link's span in the laid-out text, for drawing its badge and finding it under a long press. */
+private class LinkRange(val start: Int, val end: Int, val color: Color, val link: Int)
 
 /**
  * Rich text with bold, italic and inline links. Badges sit on the card ground with a 1px border in
  * the kind colour and wrap line by line; the underlined style drops the ground. Every link ends
- * with an 11px glyph: an arrow when it stays in the app, the external mark otherwise.
+ * with an 11px glyph: an arrow when it stays in the app, the external mark otherwise. A long press
+ * on a link opens its address with Copy and Share.
  */
 @Composable
-private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink: (Link) -> Unit) {
+private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink: (Link) -> Unit, onLongLink: (Link) -> Unit) {
     val badge = style == LinkStyle.Badge
     val links = rt.spans.mapNotNull { sp -> (sp.style as? RichStyle.Hyperlink)?.let { sp to it.link } }
     val kinds = links.map { badgeOf(it.second) }
     val colors = kinds.map { badgeColor(it) }
     val (text, ranges) = remember(rt, badge, colors) {
-        val ranges = mutableListOf<Triple<Int, Int, Color>>()
+        val ranges = mutableListOf<LinkRange>()
         buildAnnotatedString {
             val cuts = (listOf(0, rt.text.length) + rt.spans.flatMap { listOf(it.start, it.end) }).filter { it in 0..rt.text.length }.distinct().sorted()
             val linkStart = HashMap<Int, Int>()
@@ -384,11 +396,16 @@ private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink
                     textDecoration = if (li >= 0 && !badge) TextDecoration.Underline else null,
                 )
                 if (li >= 0) {
-                    linkStart.getOrPut(li) { length }
+                    linkStart.getOrPut(li) {
+                        // Real room inside the badge, so its border never touches the words around it.
+                        if (badge) appendInlineContent(PAD, " ")
+                        length
+                    }
                     withLink(LinkAnnotation.Clickable("l$li-$a") { onLink(links[li].second) }) { withStyle(span) { append(rt.text.substring(a, z)) } }
                     if (links[li].first.end == z) {
                         withLink(LinkAnnotation.Clickable("i$li") { onLink(links[li].second) }) { appendInlineContent("$ICON$li", "→") }
-                        ranges += Triple(linkStart[li]!!, length, colors[li])
+                        if (badge) appendInlineContent(PAD, " ")
+                        ranges += LinkRange(linkStart[li]!!, length, colors[li], li)
                     }
                 } else {
                     withStyle(span) { append(rt.text.substring(a, z)) }
@@ -402,37 +419,60 @@ private fun RichTextView(rt: RichText, base: TextStyle, style: LinkStyle, onLink
                 Icon(if (kinds[i].internal) Lucide.ArrowRight else Lucide.External, colors[i], 11.dp, stroke = 2.6f)
             }
         }
-    }
+    } + (PAD to InlineTextContent(Placeholder(7.sp, 1.sp, PlaceholderVerticalAlign.TextCenter)) {})
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val card = Sk.colors.surfaceCard
     val fontPx = base.fontSize
+    val haptics = LocalHapticFeedback.current
     BasicText(
         text,
         style = base.copy(color = Sk.colors.textPrimary),
         inlineContent = inline,
         onTextLayout = { layout = it },
-        modifier = Modifier.fillMaxWidth().drawBehind {
-            val l = layout ?: return@drawBehind
-            if (!badge) return@drawBehind
-            val h = fontPx.toPx() * 1.3f
-            ranges.forEach { (s, e, col) ->
-                val first = l.getLineForOffset(s)
-                val last = l.getLineForOffset((e - 1).coerceAtLeast(s))
-                for (line in first..last) {
-                    val left = if (line == first) l.getHorizontalPosition(s, true) else l.getLineLeft(line)
-                    val right = if (line == last) l.getHorizontalPosition(e, true).let { if (it <= left) l.getLineRight(line) else it } else l.getLineRight(line)
-                    if (right - left < 2f) continue
-                    // CSS `padding: 0 3px`: the box grows outward and the neighbouring spaces absorb it.
-                    val pad = 3.dp.toPx()
-                    val mid = (l.getLineTop(line) + l.getLineBottom(line)) / 2f
-                    val tl = Offset(left - pad, mid - h / 2f)
-                    val sz = Size(right - left + pad * 2, h)
-                    val r = CornerRadius(4.dp.toPx())
-                    drawRoundRect(card, tl, sz, r)
-                    drawRoundRect(col, tl, sz, r, style = Stroke(1.dp.toPx()))
+        modifier = Modifier.fillMaxWidth()
+            .pointerInput(text) {
+                // Runs before the links handle their taps, so a long press can claim the gesture.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        while (true) {
+                            val c = awaitPointerEvent(PointerEventPass.Initial).changes.first()
+                            if (!c.pressed || (c.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                        }
+                    }
+                    if (ended != null) return@awaitEachGesture
+                    val at = layout?.getOffsetForPosition(down.position) ?: return@awaitEachGesture
+                    val hit = ranges.firstOrNull { at >= it.start - 1 && at < it.end } ?: return@awaitEachGesture
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongLink(links[hit.link].second)
+                    do {
+                        val e = awaitPointerEvent(PointerEventPass.Initial)
+                        e.changes.forEach { it.consume() }
+                    } while (e.changes.any { it.pressed })
                 }
             }
-        },
+            .drawBehind {
+                val l = layout ?: return@drawBehind
+                if (!badge) return@drawBehind
+                val h = fontPx.toPx() * 1.4f
+                ranges.forEach { r ->
+                    val s = (r.start - 1).coerceAtLeast(0)
+                    val e = r.end
+                    val first = l.getLineForOffset(s)
+                    val last = l.getLineForOffset((e - 1).coerceAtLeast(s))
+                    for (line in first..last) {
+                        val left = if (line == first) l.getHorizontalPosition(s, true) else l.getLineLeft(line)
+                        val right = if (line == last) l.getHorizontalPosition(e, true).let { if (it <= left) l.getLineRight(line) else it } else l.getLineRight(line)
+                        if (right - left < 2f) continue
+                        val mid = (l.getLineTop(line) + l.getLineBottom(line)) / 2f
+                        val tl = Offset(left, mid - h / 2f)
+                        val sz = Size(right - left, h)
+                        val radius = CornerRadius(5.dp.toPx())
+                        drawRoundRect(card, tl, sz, radius)
+                        drawRoundRect(r.color, tl, sz, radius, style = Stroke(1.dp.toPx()))
+                    }
+                }
+            },
     )
 }
 

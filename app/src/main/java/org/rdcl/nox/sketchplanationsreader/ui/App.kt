@@ -86,6 +86,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.screens.SearchScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.SettingsScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.TagScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.TodayScreen
+import org.rdcl.nox.sketchplanationsreader.ui.screens.LinkSheet
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ZoomViewer
 import org.rdcl.nox.sketchplanationsreader.ui.theme.EaseOut
 import org.rdcl.nox.sketchplanationsreader.ui.theme.Sk
@@ -127,10 +128,11 @@ fun App(m: AppModel) {
         // sw600dp: a phone in landscape stays a phone; a tablet either way up is a tablet.
         val tablet = minOf(maxWidth, maxHeight) >= 600.dp
         CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole, LocalImageSource provides m.downloads::image) {
-            BackHandler(enabled = m.zoomUrl != null || m.confirm != null || m.egg || m.menu || m.canGoBack()) {
+            BackHandler(enabled = m.linkSheet != null || m.zoomUrl != null || m.confirm != null || m.egg || m.menu || m.canGoBack()) {
                 when {
                     m.egg -> m.egg = false
                     m.confirm != null -> m.confirm = null
+                    m.linkSheet != null -> m.linkSheet = null
                     m.zoomUrl != null -> m.zoomUrl = null
                     m.menu -> m.menu = false
                     else -> m.back()
@@ -313,6 +315,7 @@ private fun Overlays(m: AppModel, tablet: Boolean) {
     }
 
     m.zoomUrl?.let { ZoomViewer(m, it) }
+    m.linkSheet?.let { LinkSheet(m, it) }
     m.confirm?.let { ConfirmDialog(it, onNo = { m.confirm = null }, onYes = { m.confirm = null; it.act() }) }
     if (m.egg) EasterEgg(onClose = { m.egg = false })
 

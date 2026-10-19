@@ -177,6 +177,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var zoomUrl by mutableStateOf<String?>(null)
     var toast by mutableStateOf<String?>(null); private set
     var confirm by mutableStateOf<Confirm?>(null)
+    /** A long-pressed link, shown with its address and Copy / Share. */
+    var linkSheet by mutableStateOf<Link?>(null)
     var egg by mutableStateOf(false)
     private var verTaps = 0
 
@@ -347,6 +349,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         screen = s
         menu = false
         zoomUrl = null
+        linkSheet = null
         if (leaving == Screen.Episode && s != Screen.Episode && playing && settings.stopOnLeave) pause()
     }
 
@@ -447,6 +450,17 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         return episodes.indexOfFirst { slug.isNotEmpty() && slugOf(it.title) == slug }.takeIf { it >= 0 }
             ?: episodes.indexOfFirst { it.sketchUid == detail }.takeIf { it >= 0 }
     }
+
+    /** The address a link points to, as someone else would open it. */
+    fun urlOf(link: Link): String = when (val t = link.target) {
+        is LinkTarget.Sketch -> "https://sketchplanations.com/${t.uid}"
+        is LinkTarget.Topic -> "https://sketchplanations.com/categories/${t.uid}"
+        is LinkTarget.Episode -> t.url
+        is LinkTarget.ImageVersion -> t.url
+        is LinkTarget.External -> t.url
+    }
+
+    fun shareUrl(url: String) { effectChannel.trySend(Effect.Share(url)) }
 
     fun openUrl(url: String) {
         effectChannel.trySend(Effect.OpenUrl(url, inApp = !settings.extBrowser))
