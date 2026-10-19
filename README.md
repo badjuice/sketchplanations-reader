@@ -20,8 +20,11 @@ Needs JDK 17+ and Android SDK 34. Data comes from the
 ```
 npx git-cliff@2.6.1 --tag vX.Y.Z -o CHANGELOG.md
 ./gradlew :app:assembleRelease
-gh release create vX.Y.Z app/build/outputs/apk/release/*.apk
+npx git-cliff@2.6.1 --latest --strip all > notes.md
+gh release create vX.Y.Z -F notes.md app/build/outputs/apk/release/*.apk
 ```
+
+Release notes are the changelog section for that version, an install line and the licence line.
 
 The signing key lives in `~/.gradle/gradle.properties`, outside the repo.
 
