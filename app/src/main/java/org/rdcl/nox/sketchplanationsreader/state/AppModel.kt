@@ -935,7 +935,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun askBulk(all: Boolean) {
         if (!online) return flash("Offline. Connect first")
-        if (bulk?.paused == true) return resumeBulk()
+        val kind = if (all) Bulk.Kind.Sketches else Bulk.Kind.Episodes
+        if (bulk?.let { it.paused && it.kind == kind } == true) return resumeBulk()
         val allEpisodesMB = episodes.sumOf(::epMB)
         val wifi = ConfirmToggle("Wi-Fi only", "Off lets it use mobile data too. Same as Settings › Offline", { settings.wifiOnly }) {
             updateSettings { copy(wifiOnly = !wifiOnly) }
