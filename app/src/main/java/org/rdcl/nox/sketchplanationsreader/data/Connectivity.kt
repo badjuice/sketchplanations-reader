@@ -12,17 +12,20 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 /** The three states that drive real behaviour: images, playback and downloads all key off this. */
 enum class Conn { Wifi, Mobile, Off }
 
+fun currentConn(context: Context): Conn {
+    val cm = context.getSystemService(ConnectivityManager::class.java)
+    val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return Conn.Off
+    if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return Conn.Off
+    // Metered is what the user cares about: a phone hotspot is "mobile data" even over Wi-Fi.
+    val metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    return if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !metered) Conn.Wifi
+    else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) Conn.Wifi
+    else Conn.Mobile
+}
+
 fun connectivity(context: Context): Flow<Conn> = callbackFlow {
     val cm = context.getSystemService(ConnectivityManager::class.java)
-    fun current(): Conn {
-        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return Conn.Off
-        if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return Conn.Off
-        // Metered is what the user cares about: a phone hotspot is "mobile data" even over Wi-Fi.
-        val metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-        return if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !metered) Conn.Wifi
-        else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) Conn.Wifi
-        else Conn.Mobile
-    }
+    fun current() = currentConn(context)
     val cb = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) { trySend(current()) }
         override fun onLost(network: Network) { trySend(current()) }

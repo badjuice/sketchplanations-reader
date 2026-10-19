@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
@@ -38,6 +39,7 @@ import org.rdcl.nox.sketchplanationsreader.state.Confirm
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkButton
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
 import org.rdcl.nox.sketchplanationsreader.ui.components.T
+import org.rdcl.nox.sketchplanationsreader.ui.components.Toggle
 import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
 import org.rdcl.nox.sketchplanationsreader.ui.theme.EaseBounce
 import org.rdcl.nox.sketchplanationsreader.ui.theme.EaseOut
@@ -61,10 +63,21 @@ fun ConfirmDialog(c: Confirm, onNo: () -> Unit, onYes: () -> Unit) {
                 T(c.title, sans(21, 800, 1.25f))
                 Spacer(Modifier.height(8.dp))
                 T(c.body, sans(15, 400, 1.5f), color = Sk.colors.textSecondary)
+                c.toggle?.let { t ->
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth().noRippleClick(t.flip), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            T(t.label, sans(15, 600, 1.35f))
+                            T(t.hint, sans(13, 400, 1.45f), color = Sk.colors.textTertiary)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Toggle(t.on(), t.flip, t.label)
+                    }
+                }
                 Spacer(Modifier.height(20.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
                     GhostButton("Cancel", onNo)
-                    InkButton(onYes, bg = Sk.colors.error, fg = Color(0xFFFFFDF2)) { fg -> T(c.cta, sans(15, 700), color = fg) }
+                    InkButton(onYes, bg = if (c.danger) Sk.colors.error else Sk.colors.ink, fg = if (c.danger) Color(0xFFFFFDF2) else Sk.colors.paperTint) { fg -> T(c.cta, sans(15, 700), color = fg) }
                 }
             }
         }

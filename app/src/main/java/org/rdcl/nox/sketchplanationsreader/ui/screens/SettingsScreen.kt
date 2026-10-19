@@ -23,7 +23,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
+import org.rdcl.nox.sketchplanationsreader.work.Bulk
+import org.rdcl.nox.sketchplanationsreader.work.BulkDownloadService
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -64,7 +74,7 @@ private class ValueRow(override val label: String, override val hint: String?, v
 private class ActionRow(override val label: String, override val hint: String?, val cta: String, val act: () -> Unit) : Row_
 private class SegRow<T>(override val label: String, override val hint: String?, val opts: List<Pair<T, String>>, val cur: T, val pick: (T) -> Unit) : Row_
 
-private class SettingsGroup(val title: String, val icon: Lucide, val rows: List<Row_>, val custom: (@Composable () -> Unit)? = null, val weight: Int = rows.size)
+private class SettingsGroup(val title: String, val icon: Lucide, val rows: List<Row_>, val custom: (@Composable () -> Unit)? = null, val weight: Int = rows.size, val key: String? = null)
 
 private fun mb(v: Double) = if (v < 1024) String.format(Locale.UK, "%.1f MB", v) else String.format(Locale.UK, "%.2f GB", v / 1024)
 private fun gb(bytes: Long) = String.format(Locale.UK, "%.1f GB", bytes / 1e9)
@@ -120,7 +130,7 @@ fun SettingsScreen(m: AppModel) {
             ToggleRow("Pause for calls", "Stops on an incoming call and resumes after", s.pauseOnCall) { set { copy(pauseOnCall = !pauseOnCall) } },
             ToggleRow("Stop when leaving the episode", "Off by default, so audio follows you around the app", s.stopOnLeave) { set { copy(stopOnLeave = !stopOnLeave) } },
         ), weight = 14),
-        SettingsGroup("Storage", Lucide.Disk, emptyList(), custom = @Composable { Storage(m); Spacer(Modifier.height(18.dp)); Destructive(m) }, weight = 13),
+        SettingsGroup("Storage", Lucide.Disk, emptyList(), custom = @Composable { Storage(m); Spacer(Modifier.height(18.dp)); Destructive(m) }, weight = 13, key = "storage"),
         SettingsGroup("App", Lucide.Info, listOf(
             ValueRow("Version", "Sketchplanations reader", BuildConfig.VERSION_NAME) { m.tapVersion() },
             ValueRow("Build", "Unofficial · sketches © Jono Hey", BuildConfig.VERSION_CODE.toString()),
@@ -130,7 +140,7 @@ fun SettingsScreen(m: AppModel) {
     ScreenScroll(m) {
         if (!tablet) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                groups.forEach { GroupCard(it) }
+                groups.forEach { GroupCard(m, it) }
             }
         } else {
             // Masonry: two columns, each card kept whole, greedily balanced by height.
@@ -139,16 +149,22 @@ fun SettingsScreen(m: AppModel) {
             groups.forEach { g -> val c = if (h[0] <= h[1]) 0 else 1; cols[c] += g; h[c] += g.weight + 2 }
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 28.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 cols.forEach { col ->
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { col.forEach { GroupCard(it) } }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { col.forEach { GroupCard(m, it) } }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GroupCard(g: SettingsGroup) {
-    InkCard(Modifier.fillMaxWidth()) {
+private fun GroupCard(m: AppModel, g: SettingsGroup) {
+    // The download notification opens Settings scrolled to Storage.
+    val into = remember { BringIntoViewRequester() }
+    LaunchedEffect(m.settingsFocus) {
+        if (g.key != null && m.settingsFocus == g.key) { delay(200); into.bringIntoView(); m.settingsFocus = null }
+    }
+    InkCard(Modifier.fillMaxWidth().bringIntoViewRequester(into)) {
         Column {
             Row(Modifier.fillMaxWidth().background(Sk.colors.surfaceSunken).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(26.dp), contentAlignment = Alignment.Center) { Icon(g.icon, Sk.colors.accentAlt, 17.dp) }
@@ -241,8 +257,8 @@ private fun Storage(m: AppModel) {
         Spacer(Modifier.height(16.dp))
         val last = if (lib.lastSync == 0L) "never" else android.text.format.DateUtils.getRelativeTimeSpanString(lib.lastSync).toString()
         StorageAction("Sync with website", "Checks for new sketches. Also runs on launch when online · last $last", m.syncPct, m.pulseFor("sync") ?: "Sync now") { m.syncWithWebsite() }
-        StorageAction("Keep every sketch offline", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.bulkSketches, m.pulseFor("bulkS") ?: "Start") { m.askBulk(true) }
-        StorageAction("Keep every episode offline", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB", m.bulkEpisodes, m.pulseFor("bulkE") ?: "Start") { m.askBulk(false) }
+        BulkAction(m, Bulk.Kind.Sketches, "Keep every sketch offline", "${m.sketches.size} sketches · about ${(m.sketches.size * m.mbSketch).roundToInt()} MB at this quality", m.pulseFor("bulkS") ?: "Start")
+        BulkAction(m, Bulk.Kind.Episodes, "Keep every episode offline", "${m.episodes.size} episodes · about ${String.format(Locale.UK, "%.1f", m.episodes.sumOf(m::epMB) / 1000)} GB", m.pulseFor("bulkE") ?: "Start")
     }
 }
 
@@ -268,6 +284,46 @@ private fun StorageAction(label: String, hint: String, pct: Int?, cta: String, o
             { if (pct == null) onClick() }, Modifier.widthIn(min = 96.dp), bg = Sk.colors.surfaceCard, fg = Sk.colors.textPrimary,
             height = 36.dp, padding = 14.dp, progress = pct?.let { it / 100f },
         ) { fg -> T(if (pct != null) "$pct%" else cta, sans(13, 700).copy(fontFeatureSettings = "tnum"), color = fg, maxLines = 1) }
+    }
+}
+
+/** A bulk download's row: Start, then Pause / Resume with live progress, speed and Cancel. */
+@Composable
+private fun BulkAction(m: AppModel, kind: Bulk.Kind, label: String, hint: String, cta: String) {
+    val p = m.bulk?.takeIf { it.kind == kind }
+    val shown by animateFloatAsState(p?.fraction ?: 0f, tween(Sk.motion.base * 2), label = "bulk")
+    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                T(label, sans(15, 600, 1.35f))
+                Spacer(Modifier.height(2.dp))
+                val status = when {
+                    p == null -> hint
+                    p.paused -> "Paused at ${p.done} of ${p.total}"
+                    p.waiting -> "Waiting for Wi-Fi · ${p.done} of ${p.total}"
+                    else -> "${p.done} of ${p.total}" + if (p.bytesPerSec > 0) " · ${BulkDownloadService.speed(p.bytesPerSec)}" else ""
+                }
+                T(status, sans(13, 400, 1.45f).copy(fontFeatureSettings = "tnum"), color = Sk.colors.textTertiary)
+            }
+            Spacer(Modifier.width(12.dp))
+            val (text, act) = when {
+                p == null -> cta to { m.askBulk(kind == Bulk.Kind.Sketches) }
+                p.paused -> "Resume" to { m.resumeBulk() }
+                else -> "Pause" to { m.pauseBulk() }
+            }
+            InkButton(act, Modifier.widthIn(min = 96.dp), bg = Sk.colors.surfaceCard, fg = Sk.colors.textPrimary, height = 36.dp, padding = 14.dp) { fg ->
+                T(text, sans(13, 700), color = fg, maxLines = 1)
+            }
+        }
+        if (p != null) {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(10.dp).clip(Pill).border(2.dp, Sk.colors.ink, Pill).background(Sk.colors.surfaceSunken)) {
+                    Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(if (p.paused) Sk.colors.rule else Sk.colors.penGreen))
+                }
+                Spacer(Modifier.width(12.dp))
+                T("Cancel", sans(13, 700), Modifier.noRippleClick({ m.cancelBulk() }).padding(4.dp), Sk.colors.accentAlt)
+            }
+        }
     }
 }
 

@@ -21,7 +21,6 @@ import org.rdcl.nox.sketchplanations.explode.Link
 import org.rdcl.nox.sketchplanations.explode.LinkTarget
 import org.rdcl.nox.sketchplanationsreader.data.AppSettings
 import org.rdcl.nox.sketchplanationsreader.data.Conn
-import org.rdcl.nox.sketchplanationsreader.data.ContentRepository
 import org.rdcl.nox.sketchplanationsreader.data.Library
 import org.rdcl.nox.sketchplanationsreader.data.SearchMessages
 import org.rdcl.nox.sketchplanationsreader.data.Store
@@ -36,7 +35,8 @@ import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 import org.rdcl.nox.sketchplanations.explode.Images
 import org.rdcl.nox.sketchplanations.explode.Rendition
-import org.rdcl.nox.sketchplanationsreader.data.Downloads
+import org.rdcl.nox.sketchplanationsreader.ReaderApp
+import org.rdcl.nox.sketchplanationsreader.work.Bulk
 import org.rdcl.nox.sketchplanationsreader.data.Gallery
 import org.rdcl.nox.sketchplanationsreader.data.bytes
 import org.rdcl.nox.sketchplanationsreader.ui.image
@@ -69,7 +69,10 @@ enum class Screen(val title: String, val top: Boolean) {
 /** A history entry. Sketch → linked sketch → episode all share screen names, so each frame snapshots its subject too. */
 data class Frame(val screen: Screen, val detail: String, val ep: Int, val tag: String, val acc: String, val zoomUrl: String?)
 
-data class Confirm(val title: String, val body: String, val cta: String, val act: () -> Unit)
+/** An on/off row inside a confirmation, e.g. Wi-Fi only before a bulk download. */
+class ConfirmToggle(val label: String, val hint: String, val on: () -> Boolean, val flip: () -> Unit)
+
+data class Confirm(val title: String, val body: String, val cta: String, val toggle: ConfirmToggle? = null, val danger: Boolean = true, val act: () -> Unit)
 
 enum class SyncState { Idle, Running, Done, Failed }
 enum class Sort { Az, Date }
@@ -81,11 +84,13 @@ sealed interface Effect {
     data class Email(val to: String, val subject: String, val body: String) : Effect
     /** Android 8–9 only: storage permission for saving into Pictures. */
     data object RequestStorage : Effect
+    /** Android 13+: permission to show the download progress notification. */
+    data object RequestNotifications : Effect
 }
 
 class AppModel(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
-    val repo = ContentRepository(app)
+    val repo = (app as ReaderApp).repo
 
     var loaded by mutableStateOf(false); private set
     var settings by mutableStateOf(AppSettings()); private set
@@ -145,8 +150,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var pct by mutableIntStateOf(0); private set
     var epDl by mutableStateOf<String?>(null); private set
     var epPct by mutableIntStateOf(0); private set
-    var bulkSketches by mutableStateOf<Int?>(null); private set
-    var bulkEpisodes by mutableStateOf<Int?>(null); private set
+    /** The running or paused "keep everything offline" job, from [Bulk]. */
+    var bulk by mutableStateOf<Bulk.Progress?>(null); private set
+    /** Settings scrolls to this group once, e.g. "storage" from the download notification. */
+    var settingsFocus by mutableStateOf<String?>(null)
     var syncPct by mutableStateOf<Int?>(null); private set
     var pulse by mutableStateOf<Pair<String, String>?>(null); private set
     /** "Load image" reveals for this session only; it never touches the download cache. */
@@ -162,7 +169,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private val audio = AudioPlayer(app)
     private val http = OkHttpClient.Builder().callTimeout(10, java.util.concurrent.TimeUnit.MINUTES).build()
     /** Stored drawings and episodes. Screens ask it what to load for an image. */
-    val downloads = Downloads(app, http)
+    val downloads = (app as ReaderApp).downloads
     private var lastChapter: String? = null
 
     // Transient UI
@@ -183,7 +190,6 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private var epDlJob: Job? = null
     private var playJob: Job? = null
     private var syncJob: Job? = null
-    private var bulkJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -200,6 +206,23 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             // The incremental catalogue check also runs on launch when online.
             delay(1500)
             if (online && library.indexBuilt) syncWithWebsite(quiet = true)
+        }
+        viewModelScope.launch { Bulk.progress.collect { bulk = it } }
+        viewModelScope.launch {
+            var n = 0
+            Bulk.saved.collect { (kind, id) ->
+                updateLibrary {
+                    if (kind == Bulk.Kind.Sketches) { if (id in offline) this else copy(offline = offline + id) }
+                    else { if (id in epOffline) this else copy(epOffline = epOffline + id) }
+                }
+                if (++n % 20 == 0 || kind == Bulk.Kind.Episodes) refreshSizes()
+            }
+        }
+        viewModelScope.launch {
+            Bulk.finished.collect { p ->
+                refreshSizes()
+                pulse(if (p.kind == Bulk.Kind.Sketches) "bulkS" else "bulkE", if (p.failed == 0) "Done" else "${p.failed} failed")
+            }
         }
         viewModelScope.launch { snapshotFlow { settings.speed }.drop(1).collect { audio.player?.setPlaybackSpeed(it) } }
         viewModelScope.launch { snapshotFlow { settings.pauseOnCall }.collect { audio.setPauseForCalls(it) } }
@@ -244,8 +267,23 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         contentVersion++
         viewModelScope.launch {
             episodes = repo.podcast()?.episodes.orEmpty()
+            reconcileOffline()
             ep = ep.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
             audioEp = audioEp.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
+        }
+    }
+
+    /**
+     * The download service stores files even while no screen is open to note them, so anything
+     * on disk counts as offline. Deleting always removes the files too, so the two can't disagree.
+     */
+    private fun reconcileOffline() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val s = sketches.filter { it.uid !in library.offline && downloads.hasImage(it.image, Rendition.Read) }.map { it.uid }
+            val e = episodes.filter { it.guid !in library.epOffline && downloads.hasEpisode(it.guid) }.map { it.guid }
+            if (s.isNotEmpty() || e.isNotEmpty()) {
+                launch(Dispatchers.Main) { updateLibrary { copy(offline = offline + s, epOffline = epOffline + e) } }
+            }
         }
     }
 
@@ -356,6 +394,13 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun openTag(uid: String) {
         moveTo(Screen.Tag, push = true)
         tag = uid
+    }
+
+    /** From the download notification: Settings, scrolled to Storage. */
+    fun openStorage() {
+        if (screen == Screen.Onboarding) return
+        go(Screen.Settings)
+        settingsFocus = "storage"
     }
 
     fun openAboutHosts() = goDeep(Screen.About) { acc = "hosts" }
@@ -851,51 +896,31 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     fun askBulk(all: Boolean) {
         if (!online) return flash("Offline. Connect first")
+        if (bulk?.paused == true) return resumeBulk()
         val allEpisodesMB = episodes.sumOf(::epMB)
+        val wifi = ConfirmToggle("Wi-Fi only", "Off lets it use mobile data too. Same as Settings › Offline", { settings.wifiOnly }) {
+            updateSettings { copy(wifiOnly = !wifiOnly) }
+        }
         ask(if (all) Confirm(
             "Keep every sketch offline?",
-            "About ${(sketches.size * mbSketch).roundToInt()} MB for all ${sketches.size} sketches. Runs on Wi-Fi only and pauses if you leave.",
-            "Keep all offline",
-        ) { bulk(true) } else Confirm(
+            "About ${(sketches.size * mbSketch).roundToInt()} MB for all ${sketches.size} sketches. It runs in the background, with progress and Pause in the notification.",
+            "Keep all offline", wifi, danger = false,
+        ) { bulk(Bulk.Kind.Sketches) } else Confirm(
             "Keep every episode offline?",
-            "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes. Wi-Fi only, and it takes a while.",
-            "Keep all offline",
-        ) { bulk(false) })
+            "About ${String.format(java.util.Locale.UK, "%.1f", allEpisodesMB / 1000)} GB for ${episodes.size} episodes. It runs in the background, with progress and Pause in the notification.",
+            "Keep all offline", wifi, danger = false,
+        ) { bulk(Bulk.Kind.Episodes) })
     }
 
-    /** Downloads everything not yet stored, one item at a time; stops if Wi-Fi goes. */
-    private fun bulk(all: Boolean) {
-        if (conn != Conn.Wifi) return flash("Waiting for Wi-Fi. Keeping everything offline never uses mobile data")
-        if (bulkJob?.isActive == true) return flash("Already keeping things offline. Wait for it to finish")
-        bulkJob = viewModelScope.launch {
-            var failed = 0
-            if (all) {
-                val todo = sketches.filter { it.uid !in library.offline }
-                todo.forEachIndexed { i, s ->
-                    if (conn != Conn.Wifi) { bulkSketches = null; refreshSizes(); return@launch flash("Paused because Wi-Fi dropped. Tap Download to carry on.") }
-                    bulkSketches = (i * 100 / todo.size.coerceAtLeast(1)).coerceAtMost(99)
-                    runCatching { downloads.saveImages(s.image, renditions()) }
-                        .onSuccess { updateLibrary { if (s.uid in offline) this else copy(offline = offline + s.uid) } }
-                        .onFailure { if (it is CancellationException) throw it; failed++ }
-                    if (i % 20 == 0) refreshSizes()
-                }
-                bulkSketches = null
-                pulse("bulkS", if (failed == 0) "Done" else "$failed failed")
-            } else {
-                val todo = episodes.filter { it.guid !in library.epOffline && it.audioUrl != null }
-                todo.forEachIndexed { i, e ->
-                    if (conn != Conn.Wifi) { bulkEpisodes = null; refreshSizes(); return@launch flash("Paused because Wi-Fi dropped. Tap Download to carry on.") }
-                    runCatching { downloads.saveEpisode(e.guid, e.audioUrl!!) { p -> bulkEpisodes = ((i + p) * 100 / todo.size).toInt().coerceAtMost(99) } }
-                        .onSuccess { updateLibrary { if (e.guid in epOffline) this else copy(epOffline = epOffline + e.guid) } }
-                        .onFailure { if (it is CancellationException) throw it; failed++ }
-                    refreshSizes()
-                }
-                bulkEpisodes = null
-                pulse("bulkE", if (failed == 0) "Done" else "$failed failed")
-            }
-            refreshSizes()
-        }
+    private fun bulk(kind: Bulk.Kind) {
+        if (bulk?.let { !it.paused } == true) return flash("Already keeping things offline. Pause or cancel it first")
+        effectChannel.trySend(Effect.RequestNotifications)
+        Bulk.start(getApplication(), kind, settings.hd, settings.wifiOnly)
     }
+
+    fun pauseBulk() = Bulk.pause(getApplication())
+    fun resumeBulk() = Bulk.resume(getApplication())
+    fun cancelBulk() = Bulk.cancel(getApplication())
 
     private fun plural(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
     private fun mb(v: Double) = String.format(java.util.Locale.UK, "%.1f MB", v)

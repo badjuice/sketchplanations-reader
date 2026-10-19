@@ -78,6 +78,8 @@ class PlaybackService : MediaSessionService() {
         fun buildPlayer(context: Context, pauseForCalls: Boolean): ExoPlayer =
             ExoPlayer.Builder(context)
                 .setHandleAudioBecomingNoisy(true)
+                // Holds a CPU and Wi-Fi lock while playing, so streams don't stall with the screen off.
+                .setWakeMode(C.WAKE_MODE_NETWORK)
                 .setSeekBackIncrementMs(15_000)
                 .setSeekForwardIncrementMs(30_000)
                 .build()

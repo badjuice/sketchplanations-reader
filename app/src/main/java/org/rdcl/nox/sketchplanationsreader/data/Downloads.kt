@@ -15,6 +15,7 @@ import org.rdcl.nox.sketchplanationsreader.BuildConfig
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -24,6 +25,9 @@ import kotlin.coroutines.coroutineContext
 class Downloads(context: Context, private val http: OkHttpClient) {
     private val imageDir = File(context.filesDir, "images").apply { mkdirs() }
     private val episodeDir = File(context.filesDir, "episodes").apply { mkdirs() }
+
+    /** Every byte fetched since the process started; the download notification turns it into a speed. */
+    val bytesRead = AtomicLong()
 
     /** Image files on disk by key, observed by the UI so a finished download shows at once. */
     private val images = mutableStateMapOf<String, File>().apply {
@@ -104,6 +108,7 @@ class Downloads(context: Context, private val http: OkHttpClient) {
                             if (n < 0) break
                             out.write(buf, 0, n)
                             done += n
+                            bytesRead.addAndGet(n.toLong())
                             if (total != null) progress((done.toFloat() / total).coerceAtMost(1f))
                         }
                     }
