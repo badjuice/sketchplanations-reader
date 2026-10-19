@@ -1,5 +1,9 @@
 package org.rdcl.nox.sketchplanationsreader.ui.screens
 
+import org.rdcl.nox.sketchplanationsreader.ui.components.PopIcon
+import org.rdcl.nox.sketchplanationsreader.ui.components.still
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.abs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -172,7 +176,15 @@ fun DetailScreen(m: AppModel) {
         val i = list.indexOfFirst { it.uid == m.detail }
         if (i >= 0 && i != pager.currentPage) pager.animateScrollToPage(i)
     }
-    HorizontalPager(pager, key = { list[it].uid }) { page -> SketchPage(m, list[page]) }
+    val still = still()
+    HorizontalPager(pager, key = { list[it].uid }) { page ->
+        Box(Modifier.graphicsLayer {
+            if (still) return@graphicsLayer
+            val off = abs((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(0f, 1f)
+            alpha = 1f - off * .35f
+            scaleX = 1f - off * .06f; scaleY = scaleX
+        }) { SketchPage(m, list[page]) }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -549,7 +561,7 @@ private fun ActionTile(label: String, icon: Lucide, on: Boolean, modifier: Modif
             if (progress != null) {
                 T("${(progress * 100).toInt()}%", sans(14, 700).copy(fontFeatureSettings = "tnum"), color = Sk.colors.textPrimary)
             } else {
-                Icon(icon, fg, 18.dp)
+                PopIcon(icon, fg, 18.dp, on)
                 Spacer(Modifier.height(3.dp))
                 T(label, sans(12, 700), color = fg, maxLines = 1)
             }
@@ -578,7 +590,7 @@ fun ActionButton(label: String, icon: Lucide, on: Boolean, modifier: Modifier = 
         if (progress != null) {
             T("${(progress * 100).toInt()}%", sans(14, 700).copy(fontFeatureSettings = "tnum"), color = Sk.colors.textPrimary)
         } else {
-            Icon(icon, fg, 16.dp)
+            PopIcon(icon, fg, 16.dp, on)
             Spacer(Modifier.width(8.dp))
             T(label, sans(14, 700), color = fg, maxLines = 1)
         }

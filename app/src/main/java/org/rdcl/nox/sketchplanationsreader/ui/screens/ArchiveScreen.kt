@@ -141,12 +141,12 @@ fun ArchiveScreen(m: AppModel) {
                 ) {
                     items(items, key = { if (it is ArchiveItem.Header) "h-${it.key}" else "r-${(it as ArchiveItem.Rows).rows.first().uid}" }) { item ->
                         when (item) {
-                            is ArchiveItem.Header -> Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            is ArchiveItem.Header -> Row(Modifier.animateItem().fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 T(item.key, sans(24, 800, 1f))
                                 Spacer(Modifier.width(12.dp))
                                 Box(Modifier.weight(1f).height(1.dp).background(Sk.colors.rule))
                             }
-                            is ArchiveItem.Rows -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            is ArchiveItem.Rows -> Row(Modifier.animateItem().fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                                 item.rows.forEach { s ->
                                     Box(Modifier.weight(1f)) { ArchiveRow(m, s) }
                                 }

@@ -1,5 +1,7 @@
 package org.rdcl.nox.sketchplanationsreader.ui.components
 
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -196,15 +198,18 @@ fun InkButton(
     var held by remember { mutableStateOf(false) }
     val down = (pressed || held) && enabled
     val fillColor = Sk.colors.infoWash
+    val stripe = Sk.colors.ink.copy(alpha = .07f)
     val nudge = if (down) 1.dp else 0.dp
+    val press by animateFloatAsState(
+        if (down) .96f else 1f, if (still()) snap() else spring(dampingRatio = .45f, stiffness = 900f), label = "press",
+    )
     val base = modifier
+        .graphicsLayer { scaleX = press; scaleY = press }
         .offset(nudge, nudge)
         .hardShadow(if (down) 0.dp else shadow, shadowColor, shape)
         .clip(shape)
         .background(bg)
-        .then(if (progress != null) Modifier.drawBehind {
-            drawRect(fillColor, size = androidx.compose.ui.geometry.Size(size.width * progress, size.height))
-        } else Modifier)
+        .progressFill(progress, fillColor, stripe)
         .border(2.dp, border, shape)
     val click = if (label != null) base.tapOrHold(label, enabled, { held = it }, onClick)
     else base.clickable(src, null, enabled = enabled, role = Role.Button, onClick = onClick)
@@ -291,7 +296,7 @@ fun Chip(
 @Composable
 fun Toggle(on: Boolean, onClick: () -> Unit, label: String) {
     val bg by animateColorAsState(if (on) Sk.colors.accentAlt else Color.Transparent, tween(Sk.motion.fast, easing = EaseOut), label = "tg")
-    val knobX by animateFloatAsState(if (on) 1f else 0f, tween(Sk.motion.fast, easing = EaseOut), label = "knob")
+    val knobX by animateFloatAsState(if (on) 1f else 0f, if (still()) snap() else spring(dampingRatio = .5f, stiffness = 700f), label = "knob")
     Box(
         Modifier
             .size(52.dp, 30.dp)

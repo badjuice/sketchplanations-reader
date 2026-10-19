@@ -1,8 +1,19 @@
 package org.rdcl.nox.sketchplanationsreader.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.graphicsLayer
+import org.rdcl.nox.sketchplanationsreader.ui.components.still
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -168,7 +179,20 @@ private fun Shell(m: AppModel, tablet: Boolean) {
                     // Entries deeper than the current one were popped; forget them so the next visit starts fresh.
                     seen.filter { it.substringBefore('/').toInt() > m.stack.size }.forEach { saved.removeState(it); seen -= it }
                 }
-                Crossfade(key to scr, animationSpec = tween(Sk.motion.fast), label = "screen") { (k, s) ->
+                val still = still()
+                AnimatedContent(key to scr, transitionSpec = {
+                    val from = initialState.first.substringBefore('/').toInt()
+                    val to = targetState.first.substringBefore('/').toInt()
+                    when {
+                        still -> fadeIn(snap()) togetherWith fadeOut(snap())
+                        to > from -> (slideInHorizontally(tween(280, easing = EaseOut)) { it / 3 } + fadeIn(tween(200)))
+                            .togetherWith(slideOutHorizontally(tween(280, easing = EaseOut)) { -it / 8 } + fadeOut(tween(160)))
+                        to < from -> (slideInHorizontally(tween(280, easing = EaseOut)) { -it / 8 } + fadeIn(tween(200)))
+                            .togetherWith(slideOutHorizontally(tween(280, easing = EaseOut)) { it / 3 } + fadeOut(tween(160)))
+                        else -> (fadeIn(tween(220)) + scaleIn(tween(260, easing = EaseOut), initialScale = .97f))
+                            .togetherWith(fadeOut(tween(120)))
+                    }.using(SizeTransform(clip = false))
+                }, label = "screen") { (k, s) ->
                     saved.SaveableStateProvider(k) { ScreenContent(m, s) }
                 }
             }
@@ -221,22 +245,32 @@ private fun AppBar(m: AppModel, tablet: Boolean) {
 private fun TabBar(m: AppModel) {
     Column(Modifier.background(Sk.colors.surfaceChrome)) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
-        Row(Modifier.fillMaxWidth()) {
-            tabItems.forEach { t ->
-                val on = m.currentTab() == t.screen
-                val fg = if (on) Sk.colors.accentAlt else Sk.colors.textTertiary
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .height(62.dp)
-                        .background(if (on) Sk.colors.accentAltWash else Color.Transparent)
-                        .noRippleClick({ m.tab(t.screen) }),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(t.icon, fg, 22.dp)
-                    Spacer(Modifier.height(4.dp))
-                    T(t.label, sans(11, 600), color = fg)
+        val still = still()
+        val active = tabItems.indexOfFirst { it.screen == m.currentTab() }
+        val marker by animateFloatAsState(active.coerceAtLeast(0).toFloat(), if (still) snap() else spring(dampingRatio = .7f, stiffness = 500f), label = "marker")
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val w = maxWidth / tabItems.size
+            if (active >= 0) Box(
+                Modifier.offset(x = w * marker).width(w).height(62.dp).padding(horizontal = 10.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(14.dp)).background(Sk.colors.accentAltWash),
+            )
+            Row(Modifier.fillMaxWidth()) {
+                tabItems.forEach { t ->
+                    val on = m.currentTab() == t.screen
+                    val fg by animateColorAsState(if (on) Sk.colors.accentAlt else Sk.colors.textTertiary, tween(Sk.motion.base), label = "tabfg")
+                    val lift by animateFloatAsState(if (on) 1f else 0f, if (still) snap() else spring(dampingRatio = .4f, stiffness = 600f), label = "lift")
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .height(62.dp)
+                            .noRippleClick({ m.tab(t.screen) }),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Box(Modifier.graphicsLayer { translationY = -3.dp.toPx() * lift; scaleX = 1f + .08f * lift; scaleY = scaleX }) { Icon(t.icon, fg, 22.dp) }
+                        Spacer(Modifier.height(4.dp))
+                        T(t.label, sans(11, if (on) 700 else 600), color = fg)
+                    }
                 }
             }
         }
@@ -349,7 +383,7 @@ private fun Overlays(m: AppModel, tablet: Boolean) {
     AnimatedVisibility(
         m.toast != null,
         modifier = Modifier.fillMaxSize(),
-        enter = fadeIn(tween(Sk.motion.bounce)) + scaleIn(tween(Sk.motion.bounce), initialScale = .97f),
+        enter = fadeIn(tween(Sk.motion.bounce)) + slideInVertically(if (Sk.motion.base == 0) snap() else spring(dampingRatio = .6f, stiffness = 500f)) { it / 6 },
         exit = fadeOut(tween(Sk.motion.fast)),
     ) {
         var last by remember { mutableStateOf("") }
