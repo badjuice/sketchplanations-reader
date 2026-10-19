@@ -2,9 +2,6 @@ package org.rdcl.nox.sketchplanationsreader.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +27,6 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.LaunchedEffect
@@ -50,8 +46,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
@@ -553,47 +547,3 @@ fun ActionButton(label: String, icon: Lucide, on: Boolean, modifier: Modifier = 
 }
 
 /** Big-image viewer: pinch to zoom, drag to pan, tap to close. The sketch keeps its cream paper. */
-@Composable
-fun ZoomViewer(m: AppModel, url: String) {
-    val d = m.sketch
-    var scale by remember(url) { mutableFloatStateOf(1f) }
-    var offset by remember(url) { mutableStateOf(Offset.Zero) }
-    val tf = rememberTransformableState { zoom, pan, _ ->
-        scale = (scale * zoom).coerceIn(1f, 6f)
-        offset = if (scale == 1f) Offset.Zero else offset + pan
-    }
-    Column(
-        Modifier.fillMaxSize().background(Art.viewer).pointerInput(url) {
-            detectTapGestures(onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offset = Offset.Zero }, onTap = { m.zoomUrl = null })
-        },
-    ) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            T("${d?.num.orEmpty()} · pinch to zoom", mono(13), color = Color(0xBFFBF8DE))
-            Icon(Lucide.Close, Art.page, 22.dp)
-        }
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp).transformable(tf), contentAlignment = Alignment.Center) {
-            AsyncImage(
-                model = url, contentDescription = d?.imageAlt, contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth()
-                    .graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }
-                    .background(Art.page),
-            )
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            T("${d?.title.orEmpty()}\nImage: Jono Hey, Sketchplanations", sans(14, 600, 1.4f), Modifier.weight(1f), Color(0xD9FBF8DE))
-            // Alternate versions open here too; saving always means the sketch's own drawing.
-            if (d != null && url == m.downloads.image(d.image, Rendition.Hd)) {
-                val saved = m.inGallery(d.uid)
-                Spacer(Modifier.width(12.dp))
-                InkButton(
-                    { m.toggleGallery(d.uid) }, bg = if (saved) Art.viewer else Art.page, fg = if (saved) Art.page else Art.line,
-                    border = Art.page, shadowColor = Art.page, height = 40.dp, padding = 14.dp,
-                ) { fg ->
-                    Icon(if (saved) Lucide.Check else Lucide.Image, fg, 16.dp)
-                    Spacer(Modifier.width(6.dp))
-                    T(m.pulseFor("gal") ?: if (saved) "In gallery" else "Save to gallery", sans(13, 700), color = fg, maxLines = 1)
-                }
-            }
-        }
-    }
-}

@@ -2,11 +2,9 @@ package org.rdcl.nox.sketchplanationsreader.data
 
 import android.content.ContentValues
 import android.content.Context
-import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,7 +41,7 @@ object Gallery {
         data class Failed(val reason: String) : Result
     }
 
-    suspend fun save(context: Context, image: ByteArray, title: String, mime: String, credit: Credit, folder: String?): Result =
+    suspend fun save(context: Context, image: ByteArray, title: String, mime: String, credit: Credit): Result =
         withContext(Dispatchers.IO) {
             // Trust the bytes over what was asked for, so the name and type always agree.
             val actual = sniff(image) ?: mime
@@ -53,12 +51,6 @@ object Gallery {
             val name = "$title (Jono Hey, Sketchplanations).$ext".replace(Regex("[\\\\/:*?\"<>|]"), " ")
             try {
                 when {
-                    folder != null -> {
-                        val dir = DocumentFile.fromTreeUri(context, Uri.parse(folder)) ?: throw IOException("Folder not available")
-                        val file = dir.createFile(mime, name) ?: throw IOException("Couldn't create the file")
-                        context.contentResolver.openOutputStream(file.uri)?.use { it.write(bytes) } ?: throw IOException("Couldn't write")
-                        Result.Saved(dir.name ?: "your download folder")
-                    }
                     Build.VERSION.SDK_INT >= 29 -> {
                         val values = ContentValues().apply {
                             put(MediaStore.Images.Media.DISPLAY_NAME, name)

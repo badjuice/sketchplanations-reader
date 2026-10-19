@@ -629,39 +629,64 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         pulse("fav", if (was) "Removed" else "Favourited")
     }
 
-    /** Copies the HD drawing into the gallery (or the chosen folder), credit in name and description. */
-    fun toggleGallery(uid: String) {
+    /** Alternate versions saved this session, by URL; the sketch's own drawing is tracked in the library. */
+    var savedUrls by mutableStateOf(emptySet<String>()); private set
+    private var afterStoragePermission: (() -> Unit)? = null
+
+    private fun isOwnImage(s: SketchSummary, url: String) =
+        url == downloads.image(s.image, Rendition.Hd) || url == downloads.image(s.image, Rendition.Read) || url == s.image.original
+
+    fun imageSaved(uid: String, url: String) = byUid[uid]?.let { if (isOwnImage(it, url)) inGallery(uid) else url in savedUrls } ?: false
+
+    /**
+     * Copies the picture open in the viewer into Pictures › Sketchplanations, with the credit in its
+     * name and text fields. For the sketch's own drawing that's a 2400 px PNG; versions save as shown.
+     */
+    fun saveToGallery(uid: String, url: String) {
         val s = byUid[uid] ?: return
-        if (inGallery(uid)) return flash("Already saved. Look in Pictures › Sketchplanations")
+        if (imageSaved(uid, url)) return flash("Already saved. Look in Pictures › Sketchplanations")
+        val own = isOwnImage(s, url)
         viewModelScope.launch {
             pulse("gal", "Saving…")
             val img = s.image
             val (bytes, mime) = try {
-                if (img.isAnimated) http.bytes(img.original) to "image/gif"
-                // Ask for PNG outright: with auto=format the image service would pick JPEG or WebP.
-                else http.bytes(img.original + "?fm=png&w=2400&fit=max") to "image/png"
+                when {
+                    url.startsWith("file:") && !own -> java.io.File(Uri.parse(url).path!!).readBytes() to "image/webp"
+                    !own -> http.bytes(url) to "image/png"
+                    img.isAnimated -> http.bytes(img.original) to "image/gif"
+                    // Ask for PNG outright: with auto=format the image service would pick JPEG or WebP.
+                    else -> http.bytes(img.original + "?fm=png&w=2400&fit=max") to "image/png"
+                }
             } catch (e: Exception) {
                 // Offline: fall back to a downloaded copy if there is one.
-                val local = downloads.image(img, Rendition.Hd).takeIf { it.startsWith("file:") }
+                val local = (if (own) downloads.image(img, Rendition.Hd) else url).takeIf { it.startsWith("file:") }
                     ?.let { java.io.File(Uri.parse(it).path!!).readBytes() }
-                    ?: return@launch flash("Offline. Connect to save this image")
+                    ?: return@launch run { pulse = null; flash("Offline. Connect to save this image") }
                 local to (if (img.isAnimated) "image/gif" else "image/webp")
             }
-            val credit = Gallery.Credit(s.title, "https://sketchplanations.com/${s.uid}")
-            when (val res = Gallery.save(getApplication(), bytes, s.title, mime, credit, settings.downloadFolder)) {
+            val title = if (own) s.title else "${s.title}, another version"
+            val credit = Gallery.Credit(title, "https://sketchplanations.com/${s.uid}")
+            when (val res = Gallery.save(getApplication(), bytes, title, mime, credit)) {
                 is Gallery.Result.Saved -> {
-                    updateLibrary { if (uid in gallery) this else copy(gallery = gallery + uid) }
-                    pulse("gal", "Saved to gallery")
+                    if (own) updateLibrary { if (uid in gallery) this else copy(gallery = gallery + uid) } else savedUrls = savedUrls + url
+                    pulse("gal", "Saved")
                     flash("Saved to ${res.where}")
                 }
                 Gallery.Result.NeedsPermission -> {
                     pulse = null
+                    afterStoragePermission = { saveToGallery(uid, url) }
                     effectChannel.trySend(Effect.RequestStorage)
-                    flash("Allow storage access, then tap Save image again")
                 }
                 is Gallery.Result.Failed -> { pulse = null; flash("Couldn't save the image") }
             }
         }
+    }
+
+    /** Android 8–9: the storage prompt's answer. A yes finishes the save that asked for it. */
+    fun onStoragePermission(granted: Boolean) {
+        val next = afterStoragePermission
+        afterStoragePermission = null
+        if (granted) next?.invoke() else flash("Saving to Pictures needs storage access")
     }
 
     /** Shares carry the credit in the wording the licence page asks for, with the sketch's address. */

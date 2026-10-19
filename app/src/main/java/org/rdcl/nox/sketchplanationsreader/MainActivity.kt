@@ -96,6 +96,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1) model.onStoragePermission(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+    }
+
     companion object {
         const val EXTRA_OPEN = "open"
         const val OPEN_STORAGE = "storage"

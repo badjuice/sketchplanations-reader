@@ -43,8 +43,6 @@ data class AppSettings(
     val pauseOnCall: Boolean = true,
     val stopOnLeave: Boolean = false,
     val font: FontPack = FontPack.Original,
-    /** A SAF tree URI chosen in Settings › Offline, or null for the app's own storage. */
-    val downloadFolder: String? = null,
 )
 
 /** The three separate save lists for sketches, their podcast equivalents, and first-run state. */
@@ -99,7 +97,6 @@ class Store(private val context: Context) {
         put("skipFwd", s.skipFwd); put("sleep", s.sleep); put("continuous", s.continuous); put("autoDelete", s.autoDelete)
         put("bgPlay", s.bgPlay); put("pauseOnCall", s.pauseOnCall); put("stopOnLeave", s.stopOnLeave)
         put("font", s.font.name)
-        s.downloadFolder?.let { put("downloadFolder", it) }
     }
 
     private fun decodeSettings(o: JSONObject): AppSettings {
@@ -123,7 +120,6 @@ class Store(private val context: Context) {
             bgPlay = b("bgPlay", d.bgPlay) && b("notifPlayer", true), pauseOnCall = b("pauseOnCall", d.pauseOnCall),
             stopOnLeave = b("stopOnLeave", d.stopOnLeave),
             font = runCatching { FontPack.valueOf(o.getString("font")) }.getOrDefault(d.font),
-            downloadFolder = if (o.has("downloadFolder")) o.getString("downloadFolder") else null,
         )
     }
 

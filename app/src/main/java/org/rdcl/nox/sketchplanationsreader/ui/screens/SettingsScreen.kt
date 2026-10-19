@@ -1,11 +1,7 @@
 package org.rdcl.nox.sketchplanationsreader.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Environment
 import android.os.StatFs
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -86,14 +82,6 @@ fun SettingsScreen(m: AppModel) {
     val ctx = LocalContext.current
     val tablet = LocalTablet.current
     fun set(f: AppSettings.() -> AppSettings) = m.updateSettings(f)
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
-        if (uri != null) {
-            runCatching { ctx.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
-            set { copy(downloadFolder = uri.toString()) }
-        }
-    }
-    val folder = s.downloadFolder?.let { Uri.parse(it).lastPathSegment?.replace("primary:", "/storage/emulated/0/") } ?: "Inside the app"
-
     val groups = listOf(
         SettingsGroup("Appearance", Lucide.Sun, listOf(
             ToggleRow("Dark theme", "Sketches keep their cream paper", dark) { set { copy(dark = !dark) } },
@@ -117,7 +105,6 @@ fun SettingsScreen(m: AppModel) {
             ToggleRow("Wi-Fi only", "Never use mobile data for offline copies", s.wifiOnly) { set { copy(wifiOnly = !wifiOnly) } },
             ToggleRow("High-resolution images", "Bigger files, better zoom", s.hd) { set { copy(hd = !hd) } },
             ToggleRow("Images on Wi-Fi only", "On mobile data a sketch waits behind a Load image button", s.imgWifiOnly) { set { copy(imgWifiOnly = !imgWifiOnly) } },
-            ActionRow("Offline folder", folder, "Change") { runCatching { picker.launch(null) }.onFailure { m.flash("No folder picker on this device") } },
         )),
         SettingsGroup("Podcast", Lucide.Mic, listOf(
             SegRow("Playback speed", "Applies to every episode", listOf(1f to "1×", 1.25f to "1.25×", 1.5f to "1.5×", 2f to "2×"), s.speed) { v -> set { copy(speed = v) } },
