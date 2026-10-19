@@ -4,6 +4,29 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 [Semantic Versioning](https://semver.org). 0.1.0 was the interactive prototype in Claude Design;
 0.2.0 is the first native build.
 
+## 0.6.0 (2026-10-19)
+
+### Added
+
+- **offline:** Bulk downloads run in the background (54ceaa8)
+- **viewer:** Pinch zoom, swipe to close, save any image (e35fd86)
+- **nav:** Keep scroll position when going back (7b933c6)
+- **sketch:** Roomier link badges and long press for the address (29146fd)
+- **settings:** Each screen's settings in its top bar (3413225)
+- **ui:** Motion for presses, progress, tabs and screens (c1e77b6)
+
+### Fixed
+
+- **offline:** Start resumes only the paused job of the same kind (93630d4)
+
+### Changed
+
+- Drop pages that copy the website (415fa3d)
+
+### Documentation
+
+- Shorten the README (cc437ff)
+
 ## 0.5.0 (2026-10-19)
 
 ### Added
