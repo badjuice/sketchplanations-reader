@@ -57,7 +57,7 @@ enum class Screen(val title: String, val top: Boolean) {
     Search("Search", true),
     Categories("Topics", true),
     Library("Library", true),
-    Podcast("The podcast", true),
+    Podcast("Podcast", true),
     PodLibrary("Podcast library", true),
     Prints("Support the author", true),
     About("About this app", true),
@@ -117,7 +117,8 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Topic uid. */
     var tag by mutableStateOf(""); private set
     var acc by mutableStateOf("what")
-    var drawer by mutableStateOf(false)
+    /** The top bar's ⋮ menu is open. */
+    var menu by mutableStateOf(false)
     /** Bumped when a re-tapped tab asks the current list to scroll home. */
     var scrollTopTick by mutableIntStateOf(0); private set
 
@@ -315,7 +316,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             else -> emptyList()
         }
         screen = s
-        drawer = false
+        menu = false
         zoomUrl = null
         if (leaving == Screen.Episode && s != Screen.Episode && playing && settings.stopOnLeave) pause()
     }

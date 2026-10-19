@@ -65,6 +65,7 @@ import org.rdcl.nox.sketchplanationsreader.ui.components.Pill
 import org.rdcl.nox.sketchplanationsreader.ui.components.PressRow
 import org.rdcl.nox.sketchplanationsreader.ui.components.T
 import org.rdcl.nox.sketchplanationsreader.ui.components.HintState
+import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
 import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
 import org.rdcl.nox.sketchplanationsreader.ui.screens.AboutScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ArchiveScreen
@@ -95,50 +96,54 @@ import org.rdcl.nox.sketchplanationsreader.ui.theme.sans
 
 private data class NavItem(val screen: Screen, val label: String, val icon: Lucide)
 
-private val drawerItems = listOf(
-    NavItem(Screen.Today, "Today", Lucide.Today), NavItem(Screen.Archive, "Archive", Lucide.Archive),
-    NavItem(Screen.Browse, "Browse", Lucide.Browse), NavItem(Screen.Search, "Search", Lucide.Search),
-    NavItem(Screen.Library, "Library", Lucide.Library), NavItem(Screen.Categories, "Topics", Lucide.Chart),
-    NavItem(Screen.Podcast, "The podcast", Lucide.Mic), NavItem(Screen.PodLibrary, "Podcast library", Lucide.Mic),
-    NavItem(Screen.Prints, "Support the author", Lucide.Image), NavItem(Screen.About, "About this app", Lucide.Info),
-    NavItem(Screen.Settings, "Settings", Lucide.Settings),
-)
-
+/** The four places people go every day. Everything else sits behind the ⋮ menu. */
 private val tabItems = listOf(
     NavItem(Screen.Today, "Today", Lucide.Today), NavItem(Screen.Archive, "Archive", Lucide.Archive),
-    NavItem(Screen.Search, "Search", Lucide.Search), NavItem(Screen.Library, "Library", Lucide.Library),
+    NavItem(Screen.Podcast, "Podcast", Lucide.Mic), NavItem(Screen.Library, "Library", Lucide.Library),
 )
 
+private class MenuItem(val label: String, val icon: Lucide, val act: (AppModel) -> Unit)
+
+private val menuItems = listOf(
+    MenuItem("Random sketch", Lucide.Shuffle) { it.shuffle() },
+    MenuItem("Settings", Lucide.Settings) { it.go(Screen.Settings) },
+    MenuItem("About this app", Lucide.Info) { it.go(Screen.About) },
+    MenuItem("Support the author", Lucide.Image) { it.go(Screen.Prints) },
+)
+
+/** The tab a screen belongs to: the screen itself at the top level, else where its stack started. */
+private fun AppModel.currentTab(): Screen = stack.firstOrNull()?.screen ?: screen
+
 @Composable
-fun App(m: AppModel, dark: Boolean, onToggleTheme: () -> Unit) {
+fun App(m: AppModel) {
     val hints = remember { HintState() }
     BoxWithConstraints(Modifier.fillMaxSize().background(Sk.colors.surfaceChrome)) {
         // sw600dp: a phone in landscape stays a phone; a tablet either way up is a tablet.
         val tablet = minOf(maxWidth, maxHeight) >= 600.dp
         CompositionLocalProvider(LocalTablet provides tablet, LocalHints provides hints, LocalThumbWhole provides m.settings.thumbWhole, LocalImageSource provides m.downloads::image) {
-            BackHandler(enabled = m.zoomUrl != null || m.confirm != null || m.egg || m.drawer || m.canGoBack()) {
+            BackHandler(enabled = m.zoomUrl != null || m.confirm != null || m.egg || m.menu || m.canGoBack()) {
                 when {
                     m.egg -> m.egg = false
                     m.confirm != null -> m.confirm = null
                     m.zoomUrl != null -> m.zoomUrl = null
-                    m.drawer -> m.drawer = false
+                    m.menu -> m.menu = false
                     else -> m.back()
                 }
             }
             Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                Shell(m, tablet, dark, onToggleTheme)
-                Overlays(m, tablet, dark, onToggleTheme)
+                Shell(m, tablet)
+                Overlays(m, tablet)
             }
         }
     }
 }
 
 @Composable
-private fun Shell(m: AppModel, tablet: Boolean, dark: Boolean, onToggleTheme: () -> Unit) {
+private fun Shell(m: AppModel, tablet: Boolean) {
     val scr = m.screen
     val onboarding = scr == Screen.Onboarding
     Row(Modifier.fillMaxSize()) {
-        if (tablet && !onboarding) PinnedRail(m, dark, onToggleTheme)
+        if (tablet && !onboarding) PinnedRail(m)
         Column(Modifier.weight(1f).fillMaxHeight().background(Sk.colors.surfaceApp)) {
             if (!onboarding) AppBar(m, tablet)
             Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
@@ -187,11 +192,10 @@ private fun AppBar(m: AppModel, tablet: Boolean) {
     }
     Column(Modifier.background(Sk.colors.surfaceChrome)) {
         Row(Modifier.height(56.dp).fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (m.stack.isNotEmpty()) BarIcon(Lucide.Back, "Back", { m.back() })
-            else if (!tablet) BarIcon(Lucide.Menu, "Menu", { m.drawer = true })
+            if (m.stack.isNotEmpty()) BarIcon(Lucide.Back, "Back", { m.back() }) else Spacer(Modifier.width(8.dp))
             T(title, sans(20, 800, 1.2f, -0.01f), Modifier.weight(1f).padding(start = 8.dp), maxLines = 1)
             if (m.screen != Screen.Search) BarIcon(Lucide.Search, "Search", { m.go(Screen.Search) })
-            BarIcon(Lucide.Shuffle, "Random sketch", { m.shuffle() })
+            BarIcon(Lucide.More, "More", { m.menu = true })
         }
         Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
     }
@@ -203,7 +207,7 @@ private fun TabBar(m: AppModel) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
         Row(Modifier.fillMaxWidth()) {
             tabItems.forEach { t ->
-                val on = m.screen == t.screen || (t.screen == Screen.Today && m.screen == Screen.Detail && m.stack.firstOrNull()?.screen == Screen.Today)
+                val on = m.currentTab() == t.screen
                 val fg = if (on) Sk.colors.accentAlt else Sk.colors.textTertiary
                 Column(
                     Modifier
@@ -223,72 +227,30 @@ private fun TabBar(m: AppModel) {
     }
 }
 
+/** Tablet: a permanent rail with the four tabs, then Search and Settings. */
 @Composable
-private fun DrawerList(m: AppModel, pinned: Boolean) {
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).then(if (pinned) Modifier.padding(horizontal = 10.dp, vertical = 8.dp) else Modifier),
-        verticalArrangement = Arrangement.spacedBy(if (pinned) 2.dp else 0.dp),
-    ) {
-        drawerItems.forEach { item ->
-            val on = m.screen == item.screen
-            val fg = if (on) Sk.colors.accentAlt else Sk.colors.textPrimary
-            val bg = if (on) Sk.colors.accentAltWash else Color.Transparent
-            if (pinned) {
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(Pill).background(bg).noRippleClick({ m.go(item.screen) }).padding(horizontal = 14.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { Icon(item.icon, fg, 20.dp) }
-                    Spacer(Modifier.width(12.dp))
-                    T(item.label, sans(15, 600), color = fg)
-                }
-            } else {
-                Column {
-                    PressRow({ m.go(item.screen) }, Modifier.fillMaxWidth().background(bg)) {
-                        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp).heightIn(min = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) { Icon(item.icon, fg, 20.dp) }
-                            Spacer(Modifier.width(14.dp))
-                            T(item.label, sans(16, 600), color = fg)
-                        }
+private fun PinnedRail(m: AppModel) {
+    val items = tabItems + listOf(NavItem(Screen.Search, "Search", Lucide.Search), NavItem(Screen.Settings, "Settings", Lucide.Settings))
+    Row(Modifier.width(222.dp).fillMaxHeight()) {
+        Column(Modifier.width(220.dp).fillMaxHeight().background(Sk.colors.surfaceChrome)) {
+            T("Sketchplanations", sans(20, 800, 1.2f, -0.01f), Modifier.padding(start = 18.dp, end = 16.dp, top = 22.dp, bottom = 16.dp))
+            Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                items.forEach { item ->
+                    val on = m.currentTab() == item.screen
+                    val fg = if (on) Sk.colors.accentAlt else Sk.colors.textPrimary
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(Pill).background(if (on) Sk.colors.accentAltWash else Color.Transparent)
+                            .noRippleClick({ m.tab(item.screen) }).padding(horizontal = 14.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(item.icon, fg, 20.dp)
+                        Spacer(Modifier.width(12.dp))
+                        T(item.label, sans(15, 600), color = fg)
                     }
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(Sk.colors.borderQuiet))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun DrawerFoot(dark: Boolean, onToggleTheme: () -> Unit) {
-    Column {
-        Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            T("v${BuildConfig.VERSION_NAME}", mono(13), color = Sk.colors.textTertiary)
-            Chip(if (dark) "Light" else "Dark", onToggleTheme, height = 36.dp, hPad = 14.dp, style = sans(13, 600), leading = if (dark) Lucide.Sun else Lucide.Moon)
-        }
-    }
-}
-
-@Composable
-private fun DrawerHead(m: AppModel, size: Int) {
-    Column {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 18.dp)) {
-            T("Sketchplanations", sans(size, 800, 1.2f, -0.01f))
-            Spacer(Modifier.height(4.dp))
-            T("${m.library.offline.size} sketches offline ✎", hand(size - 5), color = Sk.colors.textSecondary)
-        }
-        Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.borderDefault))
-    }
-}
-
-/** Tablet: the drawer is not a drawer at all but a permanent 268px rail. */
-@Composable
-private fun PinnedRail(m: AppModel, dark: Boolean, onToggleTheme: () -> Unit) {
-    Row(Modifier.width(270.dp).fillMaxHeight()) {
-        Column(Modifier.width(268.dp).fillMaxHeight().background(Sk.colors.surfaceChrome)) {
-            DrawerHead(m, 22)
-            Box(Modifier.weight(1f)) { DrawerList(m, pinned = true) }
-            DrawerFoot(dark, onToggleTheme)
+            T("v${BuildConfig.VERSION_NAME}", mono(13), Modifier.padding(16.dp), Sk.colors.textTertiary)
         }
         Box(Modifier.width(2.dp).fillMaxHeight().background(Sk.colors.borderDefault))
     }
@@ -318,25 +280,22 @@ private fun MiniPlayer(m: AppModel) {
 fun clock(t: Int) = "${t / 60}:${(t % 60).toString().padStart(2, '0')}"
 
 @Composable
-private fun Overlays(m: AppModel, tablet: Boolean, dark: Boolean, onToggleTheme: () -> Unit) {
-    val dur = Sk.motion.base
-    // Drawer: slides in from the left over a fading scrim, and slides back out before unmounting.
-    if (!tablet) {
-        AnimatedVisibility(m.drawer, enter = fadeIn(tween(dur, easing = EaseOut)), exit = fadeOut(tween(dur, easing = EaseOut))) {
-            Box(Modifier.fillMaxSize().background(Sk.colors.scrim).noRippleClick({ m.drawer = false }))
-        }
-        AnimatedVisibility(
-            m.drawer,
-            enter = slideInHorizontally(tween(dur, easing = EaseOut)) { -it },
-            exit = slideOutHorizontally(tween(if (dur == 0) 0 else 170, easing = EaseOut)) { -it },
-        ) {
-            Row(Modifier.fillMaxHeight()) {
-                Column(Modifier.width(294.dp).fillMaxHeight().background(Sk.colors.surfaceOverlay).noRippleClick({})) {
-                    DrawerHead(m, 23)
-                    Box(Modifier.weight(1f)) { DrawerList(m, pinned = false) }
-                    DrawerFoot(dark, onToggleTheme)
+private fun Overlays(m: AppModel, tablet: Boolean) {
+    // The ⋮ menu: a card under the top bar's right edge; tapping outside closes it.
+    if (m.menu) {
+        Box(Modifier.fillMaxSize().noRippleClick({ m.menu = false })) {
+            InkCard(Modifier.align(Alignment.TopEnd).padding(top = 52.dp, end = 10.dp).width(230.dp), bg = Sk.colors.surfaceOverlay, radius = 14.dp) {
+                Column(Modifier.padding(vertical = 6.dp)) {
+                    menuItems.forEach { item ->
+                        PressRow({ m.menu = false; item.act(m) }, Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(item.icon, Sk.colors.textSecondary, 20.dp)
+                                Spacer(Modifier.width(14.dp))
+                                T(item.label, sans(15, 600))
+                            }
+                        }
+                    }
                 }
-                Box(Modifier.width(2.dp).fillMaxHeight().background(Sk.colors.borderDefault))
             }
         }
     }

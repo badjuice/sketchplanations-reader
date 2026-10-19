@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 enum class Lucide(val filled: Boolean, vararg val d: String) {
     Back(false, "M19 12H5", "m12 19-7-7 7-7"),
     Menu(false, "M4 6h16", "M4 12h16", "M4 18h16"),
+    More(true, "M14 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z", "M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z", "M14 19a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"),
     Search(false, "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z", "m21 21-4.3-4.3"),
     Shuffle(false, "M16 3h5v5", "M4 20 21 3", "M21 16v5h-5", "m15 15 6 6", "M4 4l5 5"),
     ArrowRight(false, "M5 12h14", "m12 5 7 7-7 7"),

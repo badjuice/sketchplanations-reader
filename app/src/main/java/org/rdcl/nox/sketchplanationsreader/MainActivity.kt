@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     m.effects.collect { e -> handle(e, chrome.toArgb()) }
                 }
-                if (m.loaded) App(m, dark) { m.updateSettings { copy(dark = !dark) } }
+                if (m.loaded) App(m)
                 else Box(Modifier.fillMaxSize().background(Sk.colors.surfaceApp))
             }
         }

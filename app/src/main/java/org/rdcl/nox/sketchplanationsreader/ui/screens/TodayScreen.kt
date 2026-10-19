@@ -90,7 +90,10 @@ fun TodayScreen(m: AppModel) {
     }
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 12.dp)) {
-            T("Today's sketch", heading(26))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                T("Today's sketch", heading(26))
+                TextLink("Random sketch", { m.shuffle() })
+            }
             Spacer(Modifier.height(2.dp))
             T("${deck[0].date} · a new one every week 🚀", hand(18), color = Sk.colors.textSecondary)
         }
