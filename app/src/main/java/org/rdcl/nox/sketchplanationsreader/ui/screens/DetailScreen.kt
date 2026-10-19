@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.InlineTextContent
@@ -41,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -472,31 +474,63 @@ fun OfflinePanel(onRetry: () -> Unit) {
     }
 }
 
-/** Anchored action bar that does not scroll: Favourite · Share · Download · Save image. */
+/**
+ * Anchored action bar that does not scroll: newer ‹ Favourite · Keep offline · Share › older.
+ * Save to gallery lives in the full-screen viewer, where the picture is.
+ */
 @Composable
 fun DetailActions(m: AppModel) {
     val d = m.sketch ?: return
     val tablet = LocalTablet.current
     val fav = m.isFavourite(d.uid)
     val off = m.isOffline(d.uid)
-    val gal = m.inGallery(d.uid)
+    val index = m.sketches.indexOfFirst { it.uid == d.uid }
     Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceChrome), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.ink))
-        Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton(m.pulseFor("fav") ?: if (fav) "Favourited" else "Favourite", if (fav) Lucide.StarFilled else Lucide.Star, fav, Modifier.weight(1f)) { m.toggleFavourite(d.uid) }
-                ActionButton(m.pulseFor("share") ?: "Share", Lucide.Share, false, Modifier.weight(1f)) { m.share(d) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val running = m.dl == d.uid
-                ActionButton(
-                    m.pulseFor("dl") ?: if (off) "Offline" else "Keep offline", if (off) Lucide.Check else Lucide.Download, off,
-                    Modifier.weight(1f), progress = if (running) m.pct / 100f else null,
-                ) { m.toggleDownload(d.uid) }
-                ActionButton(m.pulseFor("gal") ?: if (gal) "In gallery" else "Save image", if (gal) Lucide.Check else Lucide.Image, gal, Modifier.weight(1f)) { m.toggleGallery(d.uid) }
+        Row(
+            Modifier.fillMaxWidth().readMeasure(tablet).padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StepButton(Lucide.ChevronLeft, "Newer sketch", index > 0) { m.stepSketch(-1) }
+            ActionTile(m.pulseFor("fav") ?: "Favourite", if (fav) Lucide.StarFilled else Lucide.Star, fav, Modifier.weight(1f)) { m.toggleFavourite(d.uid) }
+            ActionTile(
+                m.pulseFor("dl") ?: if (off) "Offline" else "Keep offline", if (off) Lucide.Check else Lucide.Download, off,
+                Modifier.weight(1f), progress = if (m.dl == d.uid) m.pct / 100f else null,
+            ) { m.toggleDownload(d.uid) }
+            ActionTile(m.pulseFor("share") ?: "Share", Lucide.Share, false, Modifier.weight(1f)) { m.share(d) }
+            StepButton(Lucide.Chevron, "Older sketch", index in 0 until m.sketches.lastIndex) { m.stepSketch(1) }
+        }
+    }
+}
+
+/** Icon above label, so three actions and two arrows fit a phone's width. Ink-filled when done. */
+@Composable
+private fun ActionTile(label: String, icon: Lucide, on: Boolean, modifier: Modifier, progress: Float? = null, onClick: () -> Unit) {
+    InkButton(
+        onClick, modifier,
+        bg = if (on && progress == null) Sk.colors.ink else Sk.colors.surfaceCard,
+        fg = if (on && progress == null) Sk.colors.paperTint else Sk.colors.textPrimary,
+        shape = RoundedCornerShape(14.dp), height = 56.dp, padding = 4.dp, progress = progress,
+    ) { fg ->
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (progress != null) {
+                T("${(progress * 100).toInt()}%", sans(14, 700).copy(fontFeatureSettings = "tnum"), color = Sk.colors.textPrimary)
+            } else {
+                Icon(icon, fg, 18.dp)
+                Spacer(Modifier.height(3.dp))
+                T(label, sans(12, 700), color = fg, maxLines = 1)
             }
         }
     }
+}
+
+/** Older / newer arrow. At either end it fades to 40% and stops responding, but keeps its place. */
+@Composable
+private fun StepButton(icon: Lucide, label: String, enabled: Boolean, onClick: () -> Unit) {
+    InkButton(
+        onClick, Modifier.size(44.dp).alpha(if (enabled) 1f else .4f), bg = Sk.colors.surfaceCard, fg = Sk.colors.textPrimary,
+        shape = CircleShape, height = 44.dp, padding = 0.dp, enabled = enabled, label = label,
+    ) { fg -> Icon(icon, fg, 20.dp) }
 }
 
 /** Ink-filled when the thing is done; while downloading, the live percentage replaces the label. */
@@ -545,6 +579,21 @@ fun ZoomViewer(m: AppModel, url: String) {
                     .background(Art.page),
             )
         }
-        T("${d?.title.orEmpty()}\nImage: Jono Hey, Sketchplanations", sans(14, 600, 1.4f), Modifier.padding(horizontal = 16.dp, vertical = 18.dp), Color(0xD9FBF8DE))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            T("${d?.title.orEmpty()}\nImage: Jono Hey, Sketchplanations", sans(14, 600, 1.4f), Modifier.weight(1f), Color(0xD9FBF8DE))
+            // Alternate versions open here too; saving always means the sketch's own drawing.
+            if (d != null && url == m.downloads.image(d.image, Rendition.Hd)) {
+                val saved = m.inGallery(d.uid)
+                Spacer(Modifier.width(12.dp))
+                InkButton(
+                    { m.toggleGallery(d.uid) }, bg = if (saved) Art.viewer else Art.page, fg = if (saved) Art.page else Art.line,
+                    border = Art.page, shadowColor = Art.page, height = 40.dp, padding = 14.dp,
+                ) { fg ->
+                    Icon(if (saved) Lucide.Check else Lucide.Image, fg, 16.dp)
+                    Spacer(Modifier.width(6.dp))
+                    T(m.pulseFor("gal") ?: if (saved) "In gallery" else "Save to gallery", sans(13, 700), color = fg, maxLines = 1)
+                }
+            }
+        }
     }
 }

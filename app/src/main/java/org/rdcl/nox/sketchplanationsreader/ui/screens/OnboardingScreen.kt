@@ -64,8 +64,8 @@ private class Step(val title: String, val body: String)
 
 private val steps = listOf(
     Step("One idea, one sketch, every week.", "Jono Hey’s whole archive, laid out so you can actually find things. This is an unofficial reader; the sketches are his."),
-    Step("Download post, or save the image.", "Download keeps the drawing and its words in the app for reading with no signal. Save image drops just the picture into your phone gallery."),
-    Step("Favourite the ones that stick.", "A star marks what you want to come back to. Favourites and downloads are separate lists, so keeping a sketch never means storing it."),
+    Step("Keep it offline, or save the picture.", "Keep offline stores the drawing and its words, so the sketch opens with no signal. To copy just the picture to your photos, open it full screen and tap Save to gallery."),
+    Step("Favourite the ones that stick.", "A star marks what you want to come back to. Favourites and offline copies are separate lists, so a favourite takes no space on the phone."),
     Step("Building your index.", "This fetches every sketch’s words once, about 6 MB, so the archive, topics and search work with no signal. The drawings stay on the website until you open or download one."),
 )
 

@@ -347,6 +347,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (uid in byUid) detail = uid
     }
 
+    /** Moves the open sketch [delta] places through the list: +1 is older, -1 is newer. */
+    fun stepSketch(delta: Int) {
+        val i = sketches.indexOfFirst { it.uid == detail }
+        sketches.getOrNull(i + delta)?.let { detail = it.uid }
+    }
+
     fun openTag(uid: String) {
         moveTo(Screen.Tag, push = true)
         tag = uid

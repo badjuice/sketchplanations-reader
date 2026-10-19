@@ -29,6 +29,7 @@ enum class Lucide(val filled: Boolean, vararg val d: String) {
     ArrowUp(false, "M12 19V5", "m5 12 7-7 7 7"),
     ArrowDown(false, "M12 5v14", "m19 12-7 7-7-7"),
     Chevron(false, "m9 18 6-6-6-6"),
+    ChevronLeft(false, "m15 18-6-6 6-6"),
     Download(false, "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m7 10 5 5 5-5", "M12 15V3"),
     WifiOff(false, "M2 2l20 20", "M8.5 16.4a5 5 0 0 1 7 0", "M5 12.9a10 10 0 0 1 3.2-2.1", "M15.8 10.8A10 10 0 0 1 19 12.9",
         "M2 8.8a16 16 0 0 1 5-3", "M17 5.8a16 16 0 0 1 5 3", "M12 20h.01"),
