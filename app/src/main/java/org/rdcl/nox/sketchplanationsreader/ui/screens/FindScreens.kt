@@ -130,11 +130,11 @@ fun SearchScreen(m: AppModel) {
                         T("More ways to explore", sans(14), color = Sk.colors.textTertiary)
                         Spacer(Modifier.height(2.dp))
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            TextLink("Categories", { m.go(Screen.Categories) }, sans(16, 700))
+                            TextLink("Topics", { m.openTopics() }, sans(16, 700))
                             T("·", sans(16, 700), color = Sk.colors.textTertiary)
                             TextLink("Archive", { m.go(Screen.Archive) }, sans(16, 700))
                             T("·", sans(16, 700), color = Sk.colors.textTertiary)
-                            TextLink("List", { m.go(Screen.Archive); m.sort = Sort.Az }, sans(16, 700))
+                            TextLink("A–Z", { m.go(Screen.Archive); m.sort = Sort.Az }, sans(16, 700))
                         }
                     }
                     if (m.settings.showRecents && m.library.recents.isNotEmpty()) {
@@ -150,7 +150,7 @@ fun SearchScreen(m: AppModel) {
                     }
                     T("Or search by", sans(16, 700), Modifier.padding(bottom = 10.dp), Sk.colors.textSecondary)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        BigCard("Category", Lucide.Chart, Modifier.weight(1f)) { m.go(Screen.Categories) }
+                        BigCard("Topic", Lucide.Chart, Modifier.weight(1f)) { m.openTopics() }
                         BigCard("Date or number", Lucide.Calendar, Modifier.weight(1f)) { m.go(Screen.Archive); m.sort = Sort.Date }
                     }
                 }
@@ -217,12 +217,12 @@ fun Spinner() {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CategoriesScreen(m: AppModel) {
+fun TopicsContent(m: AppModel) {
     if (m.topics.isEmpty()) { NothingStored(m); return }
     val max = m.topics.maxOf { it.count }.coerceAtLeast(1).toFloat()
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp)) {
-            T("Every sketch carries a few keywords. See how often each one comes up, or run through all of them A–Z.", sans(16, 400, 1.5f), Modifier.padding(bottom = 18.dp), Sk.colors.textSecondary)
+            T("Every sketch is filed under a few topics. See how often each comes up, or run through them A–Z.", sans(16, 400, 1.5f), Modifier.padding(bottom = 18.dp), Sk.colors.textSecondary)
             // A switch, never stacked; always defaults to frequency on entry.
             Row(Modifier.padding(bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip("By frequency", { m.catByFreq = true }, Modifier.weight(1f), on = m.catByFreq, height = 38.dp)
@@ -268,7 +268,7 @@ fun TagScreen(m: AppModel) {
     }
     ScreenScroll(m) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 12.dp)) {
-            Eyebrow("Tag")
+            Eyebrow("Topic")
             Spacer(Modifier.height(6.dp))
             T(m.topicName(m.tag), heading(30, 1.2f))
             Spacer(Modifier.height(4.dp))
@@ -276,12 +276,12 @@ fun TagScreen(m: AppModel) {
         }
         Hairline()
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
-            if (rows.isEmpty()) T("None of the sketches on this device carry this tag yet.", sans(16, 400, 1.5f), Modifier.padding(vertical = 24.dp), Sk.colors.textSecondary)
+            if (rows.isEmpty()) T("No stored sketch is filed under this topic yet.", sans(16, 400, 1.5f), Modifier.padding(vertical = 24.dp), Sk.colors.textSecondary)
             Columns(rows) { ResultRow(m, it, pill = true) }
         }
         InkRule()
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp)) {
-            T("Other tags", sans(16, 700), Modifier.padding(bottom = 12.dp), Sk.colors.textSecondary)
+            T("Other topics", sans(16, 700), Modifier.padding(bottom = 12.dp), Sk.colors.textSecondary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 m.topics.filter { it.uid != m.tag && it.count > 0 }.take(8).forEach { c ->
                     Chip(c.name, { m.openTag(c.uid) }, height = null, hPad = 12.dp, vPad = 5.dp, style = sans(13, 600), count = c.count.toString(), countStyle = mono(11))

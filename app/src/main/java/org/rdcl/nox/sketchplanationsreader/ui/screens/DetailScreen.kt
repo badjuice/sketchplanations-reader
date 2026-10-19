@@ -32,6 +32,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import org.rdcl.nox.sketchplanationsreader.data.db.SketchSummary
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -151,10 +156,25 @@ fun badgeWash(k: LinkBadge): Color = when (k) {
     LinkBadge.Site, LinkBadge.Web -> Sk.colors.surfaceSunken
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(m: AppModel) {
-    val s = m.sketch ?: return NothingStored(m)
+    val start = m.sketch ?: return NothingStored(m)
+    val list = m.sketches
+    // Newest first, so swiping left moves to the next older sketch.
+    val pager = rememberPagerState(initialPage = list.indexOfFirst { it.uid == start.uid }.coerceAtLeast(0)) { list.size }
+    // A settled swipe makes that sketch the current one, without adding to the back stack.
+    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { i -> list.getOrNull(i)?.let { m.showSketch(it.uid) } } }
+    // Older/newer buttons and links change the current sketch; the pager follows.
+    LaunchedEffect(m.detail) {
+        val i = list.indexOfFirst { it.uid == m.detail }
+        if (i >= 0 && i != pager.currentPage) pager.animateScrollToPage(i)
+    }
+    HorizontalPager(pager, key = { list[it].uid }) { page -> SketchPage(m, list[page]) }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SketchPage(m: AppModel, s: SketchSummary) {
     val full by produceState<Sketch?>(null, s.uid, m.contentVersion) { value = m.repo.sketch(s.uid) }
     val tablet = LocalTablet.current
     val big = m.settings.bigText
@@ -262,7 +282,7 @@ fun DetailScreen(m: AppModel) {
 
                 if (f.tags.isNotEmpty()) {
                     Spacer(Modifier.height(20.dp))
-                    Eyebrow("Tags")
+                    Eyebrow("Topics")
                     Spacer(Modifier.height(8.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         f.tags.forEach { t ->

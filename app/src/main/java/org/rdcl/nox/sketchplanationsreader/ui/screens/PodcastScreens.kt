@@ -22,13 +22,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -42,9 +41,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.code
 import org.rdcl.nox.sketchplanationsreader.ui.dateLabel
 import org.rdcl.nox.sketchplanationsreader.ui.lengthLabel
 import org.rdcl.nox.sketchplanationsreader.ui.image
-import org.rdcl.nox.sketchplanationsreader.ui.num
-import org.rdcl.nox.sketchplanationsreader.ui.date
-import org.rdcl.nox.sketchplanations.explode.Rendition
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
@@ -458,70 +454,4 @@ fun Field(
             )
         }
     }
-}
-
-// ---- Browse -------------------------------------------------------------------------------
-
-/** Sequential reading, modelled on the xkcd Android reader. #1 is the oldest. */
-@Composable
-fun BrowseScreen(m: AppModel) {
-    val tablet = LocalTablet.current
-    val list = m.sketches.asReversed()
-    if (list.isEmpty()) return NothingStored(m)
-    val i = m.browseIdx.coerceIn(0, list.lastIndex)
-    val cur = list[i]
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).padding(start = 16.dp, end = 16.dp, top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                T("${cur.num} · ${cur.date}", mono(13), color = Sk.colors.textTertiary)
-                T("${i + 1} of ${list.size}", mono(13), color = Sk.colors.textTertiary)
-            }
-            InkCard(Modifier.weight(1f).heightIn(min = 220.dp).fillMaxWidth(), bg = Art.paper, shadow = Shadow.md, shadowColor = Sk.colors.shadowInk) {
-                Box(Modifier.fillMaxSize().noRippleClick({ m.open(cur.uid) }), contentAlignment = Alignment.BottomStart) {
-                    if (!m.imageHeld(cur.uid)) {
-                        ArtBlock(Modifier.fillMaxSize(), radius = 0.dp, border = false, caption = "sketch ${cur.num} ✎", image = cur.image, rendition = Rendition.Read, fit = true)
-                    }
-                    if (m.imageHeld(cur.uid)) {
-                        Column(Modifier.fillMaxSize().background(Art.paper).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            T("held back: you're on mobile data ✎", hand(17), color = Art.caption)
-                            Spacer(Modifier.height(12.dp))
-                            InkButton({ m.reveal(cur.uid) }, height = 40.dp, padding = 18.dp, border = Art.line, shadowColor = Art.line) { fg ->
-                                Icon(Lucide.Download, fg, 15.dp, stroke = 2.2f); Spacer(Modifier.width(8.dp)); T("Load image", sans(14, 700), color = fg)
-                            }
-                        }
-                    }
-                }
-            }
-            Column(Modifier.fillMaxWidth().readMeasure(tablet).padding(top = 14.dp, bottom = 4.dp)) {
-                T(cur.title, heading(22))
-                Spacer(Modifier.height(4.dp))
-                T(cur.lead, sans(15, 400, 1.5f), color = Sk.colors.textSecondary, maxLines = 3)
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Column(Modifier.fillMaxWidth().background(Sk.colors.surfaceChrome)) {
-            Box(Modifier.fillMaxWidth().height(2.dp).background(Sk.colors.ink))
-            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                NavSlot("« first", "First sketch", i > 0, Modifier.weight(1f)) { m.browseIdx = 0 }
-                NavSlot("‹ prev", "Previous", i > 0, Modifier.weight(1f)) { m.browseIdx = (i - 1).coerceAtLeast(0) }
-                InkButton({ m.browseIdx = list.indices.random() }, Modifier.weight(1f), height = 48.dp, padding = 0.dp, label = "Random") { fg ->
-                    T("rand", sans(14, 700), color = fg)
-                }
-                NavSlot("next ›", "Next", i < list.lastIndex, Modifier.weight(1f)) { m.browseIdx = (i + 1).coerceAtMost(list.lastIndex) }
-                NavSlot("last »", "Latest", i < list.lastIndex, Modifier.weight(1f)) { m.browseIdx = list.lastIndex }
-            }
-        }
-    }
-}
-
-/** Ends disable and drop to 40% opacity rather than disappearing; a disabled slot keeps its box. */
-@Composable
-private fun NavSlot(text: String, label: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    InkButton(
-        onClick, modifier.alpha(if (on) 1f else .4f),
-        bg = if (on) Sk.colors.surfaceCard else Color.Transparent,
-        fg = if (on) Sk.colors.textPrimary else Sk.colors.textTertiary,
-        border = if (on) Sk.colors.borderDefault else Sk.colors.borderQuiet,
-        shadow = if (on) Shadow.sm else 0.dp, height = 48.dp, padding = 0.dp, enabled = on, label = label,
-    ) { fg -> T(text, sans(14, 700), color = fg, maxLines = 1) }
 }

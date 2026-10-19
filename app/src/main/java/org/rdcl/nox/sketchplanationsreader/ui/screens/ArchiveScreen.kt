@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,17 +22,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,11 +46,9 @@ import org.rdcl.nox.sketchplanationsreader.ui.image
 import org.rdcl.nox.sketchplanationsreader.ui.num
 import org.rdcl.nox.sketchplanationsreader.ui.year
 import org.rdcl.nox.sketchplanationsreader.state.AppModel
-import org.rdcl.nox.sketchplanationsreader.state.Filter
 import org.rdcl.nox.sketchplanationsreader.state.Sort
 import org.rdcl.nox.sketchplanationsreader.state.SyncState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Chip
-import org.rdcl.nox.sketchplanationsreader.ui.components.EmptyState
 import org.rdcl.nox.sketchplanationsreader.ui.components.Hairline
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
 import org.rdcl.nox.sketchplanationsreader.ui.components.InkButton
@@ -77,12 +73,7 @@ private sealed interface ArchiveItem {
 @Composable
 fun ArchiveScreen(m: AppModel) {
     val tablet = LocalTablet.current
-    val lib = m.library
-    val base = when (m.filter) {
-        Filter.Offline -> m.sketches.filter { it.uid in lib.offline }
-        Filter.Favourites -> m.sketches.filter { it.uid in lib.favourites }
-        Filter.All -> m.sketches
-    }
+    val base = m.sketches
     val flip = if (m.asc) -1 else 1
     val groups: List<ArcGroup> = if (m.sort == Sort.Az) {
         base.sortedWith { a, b -> a.sortKey.compareTo(b.sortKey, ignoreCase = true) * flip }
@@ -111,12 +102,19 @@ fun ArchiveScreen(m: AppModel) {
 
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(m.sort, m.asc, m.filter) { state.scrollToItem(0) }
+    LaunchedEffect(m.sort, m.asc) { state.scrollToItem(0) }
     val tick = remember { m.scrollTopTick }
     LaunchedEffect(m.scrollTopTick) { if (m.scrollTopTick != tick) state.animateScrollToItem(0) }
 
     Column(Modifier.fillMaxSize()) {
         if (m.sketches.isEmpty()) { IndexBanner(m); return@Column }
+
+        // Two views of the same archive: every sketch, or the topics they're filed under.
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Sketches", { m.archiveTopics = false }, Modifier.weight(1f), on = !m.archiveTopics, height = 38.dp)
+            Chip("Topics", { m.archiveTopics = true }, Modifier.weight(1f), on = m.archiveTopics, height = 38.dp)
+        }
+        if (m.archiveTopics) { TopicsContent(m); return@Column }
 
         val azOn = m.sort == Sort.Az
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -131,22 +129,9 @@ fun ArchiveScreen(m: AppModel) {
             T("${base.size} ${if (base.size == 1) "sketch" else "sketches"}", mono(13), color = Sk.colors.textTertiary)
         }
         Hairline()
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(Filter.All to "All", Filter.Offline to "Downloaded", Filter.Favourites to "Favourites").forEach { (f, label) ->
-                Chip(label, { m.filter = f }, on = m.filter == f, height = 34.dp)
-            }
-        }
-        Hairline()
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (groups.isEmpty()) {
-                EmptyState(
-                    "Nothing here yet",
-                    if (m.filter == Filter.Offline) "Nothing downloaded yet. Open a sketch and tap Download post to keep it here."
-                    else "Nothing favourited yet. Tap Favourite on a sketch and it will show up here.",
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            } else {
+            run {
                 LazyColumn(
                     state = state,
                     contentPadding = PaddingValues(start = 16.dp, end = if (rail.isNotEmpty()) 36.dp else 16.dp, bottom = 26.dp),

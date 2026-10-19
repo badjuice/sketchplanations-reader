@@ -55,7 +55,6 @@ enum class Screen(val title: String, val top: Boolean) {
     Detail("", false),
     Archive("Archive", true),
     Search("Search", true),
-    Categories("Topics", true),
     Library("Library", true),
     Podcast("Podcast", true),
     PodLibrary("Podcast library", true),
@@ -63,7 +62,6 @@ enum class Screen(val title: String, val top: Boolean) {
     About("About this app", true),
     Settings("Settings", true),
     Episode("Episode", false),
-    Browse("Browse", false),
     Tag("", false),
     PodcastAbout("About the podcast", false),
     PodcastContact("Contact the show", false),
@@ -76,7 +74,6 @@ data class Confirm(val title: String, val body: String, val cta: String, val act
 
 enum class SyncState { Idle, Running, Done, Failed }
 enum class Sort { Az, Date }
-enum class Filter { All, Offline, Favourites }
 enum class SearchPhase { Idle, Typing, Searching, Done }
 
 sealed interface Effect {
@@ -132,13 +129,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     // Per-view modes, reset on entry
     var sort by mutableStateOf(Sort.Date)
     var asc by mutableStateOf(false)
-    var filter by mutableStateOf(Filter.All)
+    /** Archive shows the topic index instead of the sketch list. */
+    var archiveTopics by mutableStateOf(false)
     var catByFreq by mutableStateOf(true)
     var libFavTab by mutableStateOf(true)
     var podFavTab by mutableStateOf(true)
     var deckIdx by mutableIntStateOf(0)
-    /** Position in publication order, 0 = the first sketch. */
-    var browseIdx by mutableIntStateOf(0)
 
     // Search
     var q by mutableStateOf(""); private set
@@ -224,7 +220,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                 if (first) { first = false; return@collect }
                 when {
                     was == Conn.Off && c != Conn.Off ->
-                        flash(if (screen == Screen.Detail || screen == Screen.Browse) "Back online. Tap to load this sketch" else "Back online")
+                        flash(if (screen == Screen.Detail) "Back online. Tap to load this sketch" else "Back online")
                     c == Conn.Off -> flash("Offline. Everything stored on the phone still opens.")
                     else -> flash(if (c == Conn.Wifi) "On Wi-Fi" else "On mobile data")
                 }
@@ -296,13 +292,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     /** Every view resets to its default on entry. No screen remembers a filter set three taps ago. */
     private fun applyDefaults(s: Screen) {
         when (s) {
-            Screen.Categories -> catByFreq = true
-            Screen.Archive -> { filter = Filter.All; sort = Sort.Date; asc = false }
+            Screen.Archive -> { archiveTopics = false; catByFreq = true; sort = Sort.Date; asc = false }
             Screen.Library -> libFavTab = true
             Screen.PodLibrary -> podFavTab = true
             Screen.Search -> { searchJob?.cancel(); q = ""; phase = SearchPhase.Idle; results = emptyList() }
             Screen.About -> acc = "what"
-            Screen.Browse -> browseIdx = (sketches.size - 1).coerceAtLeast(0)
             else -> {}
         }
     }
@@ -343,6 +337,17 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (episodes.isEmpty()) return
         moveTo(Screen.Episode, push = true)
         ep = i.coerceIn(0, episodes.lastIndex)
+    }
+
+    /** Archive, opened on its topic index. */
+    fun openTopics() {
+        go(Screen.Archive)
+        archiveTopics = true
+    }
+
+    /** Swiping between sketches changes the one shown without adding to the back stack. */
+    fun showSketch(uid: String) {
+        if (uid in byUid) detail = uid
     }
 
     fun openTag(uid: String) {

@@ -106,7 +106,7 @@ fun TodayScreen(m: AppModel) {
         InkRule()
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             T("Popular topics", sans(21, 800, 1.3f))
-            TextLink("All topics", { m.go(Screen.Categories) })
+            TextLink("All topics", { m.openTopics() })
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             m.topics.take(6).forEach { c ->

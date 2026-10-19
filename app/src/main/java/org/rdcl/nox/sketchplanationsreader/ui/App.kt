@@ -69,8 +69,6 @@ import org.rdcl.nox.sketchplanationsreader.ui.components.InkCard
 import org.rdcl.nox.sketchplanationsreader.ui.components.noRippleClick
 import org.rdcl.nox.sketchplanationsreader.ui.screens.AboutScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ArchiveScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.BrowseScreen
-import org.rdcl.nox.sketchplanationsreader.ui.screens.CategoriesScreen
 import org.rdcl.nox.sketchplanationsreader.ui.screens.ConfirmDialog
 import org.rdcl.nox.sketchplanationsreader.ui.screens.DetailActions
 import org.rdcl.nox.sketchplanationsreader.ui.screens.DetailScreen
@@ -169,12 +167,10 @@ private fun ScreenContent(m: AppModel, s: Screen) {
         Screen.Detail -> DetailScreen(m)
         Screen.Archive -> ArchiveScreen(m)
         Screen.Search -> SearchScreen(m)
-        Screen.Categories -> CategoriesScreen(m)
         Screen.Library -> LibraryScreen(m)
         Screen.Podcast -> PodcastScreen(m)
         Screen.PodLibrary -> PodLibraryScreen(m)
         Screen.Episode -> EpisodeScreen(m)
-        Screen.Browse -> BrowseScreen(m)
         Screen.Tag -> TagScreen(m)
         Screen.PodcastAbout -> PodcastAboutScreen(m)
         Screen.PodcastContact -> PodcastContactScreen(m)
