@@ -542,7 +542,7 @@ fun DetailActions(m: AppModel) {
                 m.pulseFor("dl") ?: if (off) "Offline" else "Keep offline", if (off) Lucide.Check else Lucide.Download, off,
                 Modifier.weight(1f), progress = if (m.dl == d.uid) m.pct / 100f else null,
             ) { m.toggleDownload(d.uid) }
-            ActionTile(m.pulseFor("share") ?: "Share", Lucide.Share, false, Modifier.weight(1f)) { m.share(d) }
+            ActionTile(m.pulseFor("share") ?: "Share", Lucide.Share, false, Modifier.weight(1f)) { m.sharePicture(d.uid) }
             StepButton(Lucide.Chevron, "Older sketch", index in 0 until m.sketches.lastIndex) { m.stepSketch(1) }
         }
     }

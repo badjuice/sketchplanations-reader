@@ -42,6 +42,16 @@
             </intent-filter>
         </service>
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- "Keep every sketch / episode offline", with progress and Pause in the shade. -->
         <service
             android:name=".work.BulkDownloadService"

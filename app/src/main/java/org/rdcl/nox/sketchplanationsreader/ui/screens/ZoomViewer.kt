@@ -175,6 +175,11 @@ fun ZoomViewer(m: AppModel, url: String) {
                     val saved = m.imageSaved(d.uid, url)
                     Spacer(Modifier.width(12.dp))
                     InkButton(
+                        { m.sharePicture(d.uid, url) }, bg = Art.viewer, fg = Art.page,
+                        border = Art.page, shadowColor = Art.page, height = 40.dp, padding = 12.dp, label = "Share the picture",
+                    ) { fg -> Icon(Lucide.Share, fg, 16.dp) }
+                    Spacer(Modifier.width(8.dp))
+                    InkButton(
                         { m.saveToGallery(d.uid, url) }, bg = if (saved) Art.viewer else Art.page, fg = if (saved) Art.page else Art.line,
                         border = Art.page, shadowColor = Art.page, height = 40.dp, padding = 14.dp,
                     ) { fg ->

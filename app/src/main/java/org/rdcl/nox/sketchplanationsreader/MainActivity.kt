@@ -81,6 +81,14 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(Intent.ACTION_VIEW, uri))
                     }
                 }
+                is Effect.ShareImage -> {
+                    val uri = Uri.parse(e.uri)
+                    val send = Intent(Intent.ACTION_SEND).setType(e.mime)
+                        .putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TEXT, e.text)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    send.clipData = android.content.ClipData.newRawUri(null, uri)
+                    startActivity(Intent.createChooser(send, null))
+                }
                 is Effect.Share -> startActivity(Intent.createChooser(
                     Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, e.text), null,
                 ))

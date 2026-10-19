@@ -41,14 +41,31 @@ object Gallery {
         data class Failed(val reason: String) : Result
     }
 
+    /** The file as it should be written: real type, credit in PNG text fields, credit in the name. */
+    private class Credited(val bytes: ByteArray, val mime: String, val name: String)
+
+    private fun credited(image: ByteArray, title: String, mime: String, credit: Credit): Credited {
+        // Trust the bytes over what was asked for, so the name and type always agree.
+        val actual = sniff(image) ?: mime
+        val bytes = if (actual == "image/png") Png.withText(image, credit.fields) else image
+        val ext = when (actual) { "image/gif" -> "gif"; "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
+        return Credited(bytes, actual, "$title (Jono Hey, Sketchplanations).$ext".replace(Regex("[\\\\/:*?\"<>|]"), " "))
+    }
+
+    /** Writes the picture to the share cache for another app to read; the previous one is removed. */
+    suspend fun shareable(context: Context, image: ByteArray, title: String, mime: String, credit: Credit): Pair<File, String> =
+        withContext(Dispatchers.IO) {
+            val c = credited(image, title, mime, credit)
+            val dir = File(context.cacheDir, "shared").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+            File(dir, c.name).apply { writeBytes(c.bytes) } to c.mime
+        }
+
     suspend fun save(context: Context, image: ByteArray, title: String, mime: String, credit: Credit): Result =
         withContext(Dispatchers.IO) {
-            // Trust the bytes over what was asked for, so the name and type always agree.
-            val actual = sniff(image) ?: mime
-            val bytes = if (actual == "image/png") Png.withText(image, credit.fields) else image
-            val ext = when (actual) { "image/gif" -> "gif"; "image/jpeg" -> "jpg"; "image/webp" -> "webp"; else -> "png" }
-            @Suppress("NAME_SHADOWING") val mime = actual
-            val name = "$title (Jono Hey, Sketchplanations).$ext".replace(Regex("[\\\\/:*?\"<>|]"), " ")
+            val c = credited(image, title, mime, credit)
+            val bytes = c.bytes
+            val name = c.name
+            @Suppress("NAME_SHADOWING") val mime = c.mime
             try {
                 when {
                     Build.VERSION.SDK_INT >= 29 -> {

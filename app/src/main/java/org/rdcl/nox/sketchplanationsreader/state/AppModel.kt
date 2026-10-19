@@ -81,6 +81,7 @@ enum class SearchPhase { Idle, Typing, Searching, Done }
 sealed interface Effect {
     data class OpenUrl(val url: String, val inApp: Boolean) : Effect
     data class Share(val text: String) : Effect
+    data class ShareImage(val uri: String, val mime: String, val text: String) : Effect
     /** Android 8–9 only: storage permission for saving into Pictures. */
     data object RequestStorage : Effect
     /** Android 13+: permission to show the download progress notification. */
@@ -683,22 +684,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         val own = isOwnImage(s, url)
         viewModelScope.launch {
             pulse("gal", "Saving…")
-            val img = s.image
-            val (bytes, mime) = try {
-                when {
-                    url.startsWith("file:") && !own -> java.io.File(Uri.parse(url).path!!).readBytes() to "image/webp"
-                    !own -> http.bytes(url) to "image/png"
-                    img.isAnimated -> http.bytes(img.original) to "image/gif"
-                    // Ask for PNG outright: with auto=format the image service would pick JPEG or WebP.
-                    else -> http.bytes(img.original + "?fm=png&w=2400&fit=max") to "image/png"
-                }
-            } catch (e: Exception) {
-                // Offline: fall back to a downloaded copy if there is one.
-                val local = (if (own) downloads.image(img, Rendition.Hd) else url).takeIf { it.startsWith("file:") }
-                    ?.let { java.io.File(Uri.parse(it).path!!).readBytes() }
-                    ?: return@launch run { pulse = null; flash("Offline. Connect to save this image") }
-                local to (if (img.isAnimated) "image/gif" else "image/webp")
-            }
+            val (bytes, mime) = pictureBytes(s, url, own) ?: return@launch run { pulse = null; flash("Offline. Connect to save this image") }
             val title = if (own) s.title else "${s.title}, another version"
             val credit = Gallery.Credit(title, "https://sketchplanations.com/${s.uid}")
             when (val res = Gallery.save(getApplication(), bytes, title, mime, credit)) {
@@ -717,6 +703,45 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * The picture's bytes: for the sketch's own drawing a 2400 px PNG, for a version what the
+     * viewer shows. Offline it falls back to a stored copy, or null when there is none.
+     */
+    private suspend fun pictureBytes(s: SketchSummary, url: String, own: Boolean): Pair<ByteArray, String>? {
+        val img = s.image
+        return try {
+            when {
+                url.startsWith("file:") && !own -> java.io.File(Uri.parse(url).path!!).readBytes() to "image/webp"
+                !own -> http.bytes(url) to "image/png"
+                img.isAnimated -> http.bytes(img.original) to "image/gif"
+                // Ask for PNG outright: with auto=format the image service would pick JPEG or WebP.
+                else -> http.bytes(img.original + "?fm=png&w=2400&fit=max") to "image/png"
+            }
+        } catch (e: Exception) {
+            (if (own) downloads.image(img, Rendition.Hd) else url).takeIf { it.startsWith("file:") }
+                ?.let { java.io.File(Uri.parse(it).path!!).readBytes() to (if (img.isAnimated) "image/gif" else "image/webp") }
+        }
+    }
+
+    /** Shares the picture itself, credit in the file and in the caption. Offline with no copy, the link. */
+    fun sharePicture(uid: String, url: String? = null) {
+        val s = byUid[uid] ?: return
+        val shown = url ?: downloads.image(s.image, Rendition.Hd)
+        val own = isOwnImage(s, shown)
+        viewModelScope.launch {
+            pulse("share", "Preparing…")
+            val got = pictureBytes(s, shown, own) ?: return@launch share(s)
+            val title = if (own) s.title else "${s.title}, another version"
+            val (file, mime) = Gallery.shareable(getApplication(), got.first, title, got.second, Gallery.Credit(title, "https://sketchplanations.com/${s.uid}"))
+            val app = getApplication<Application>()
+            val uri = androidx.core.content.FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+            effectChannel.trySend(Effect.ShareImage(uri.toString(), mime, caption(s)))
+            pulse("share", "Credit attached")
+        }
+    }
+
+    private fun caption(s: SketchSummary) = "${s.title}\nImage: Jono Hey, Sketchplanations\nhttps://sketchplanations.com/${s.uid}"
+
     /** Android 8–9: the storage prompt's answer. A yes finishes the save that asked for it. */
     fun onStoragePermission(granted: Boolean) {
         val next = afterStoragePermission
@@ -726,7 +751,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /** Shares carry the credit in the wording the licence page asks for, with the sketch's address. */
     fun share(s: SketchSummary) {
-        effectChannel.trySend(Effect.Share("${s.title}\nImage: Jono Hey, Sketchplanations\nhttps://sketchplanations.com/${s.uid}"))
+        effectChannel.trySend(Effect.Share(caption(s)))
         pulse("share", "Credit attached")
     }
 
