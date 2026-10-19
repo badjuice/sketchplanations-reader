@@ -207,7 +207,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         // shade notification Android requires for background playback.
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
-                if (playing && !(settings.bgPlay && settings.notifPlayer)) pause()
+                if (playing && !settings.bgPlay) pause()
             }
         })
         viewModelScope.launch {
@@ -722,7 +722,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (settings.sleep > 0 && sleepEndsAt == null) sleepEndsAt = System.currentTimeMillis() + settings.sleep * 60_000L
         viewModelScope.launch {
             audio.setListener(playerEvents)
-            val p = runCatching { audio.connect(settings.notifPlayer) }.getOrElse {
+            val p = runCatching { audio.connect(settings.bgPlay) }.getOrElse {
                 playing = false
                 return@launch flash("Couldn't start the player")
             }

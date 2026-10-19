@@ -38,13 +38,10 @@ data class AppSettings(
     val sleep: Int = 0,
     val continuous: Boolean = false,
     val autoDelete: Boolean = true,
-    val streamHq: Boolean = false,
+    /** Keeps playing with the screen off or the app closed, with controls on the lock screen. */
     val bgPlay: Boolean = true,
-    val notifPlayer: Boolean = true,
     val pauseOnCall: Boolean = true,
     val stopOnLeave: Boolean = false,
-    val notifySketch: Boolean = true,
-    val notifyEp: Boolean = false,
     val font: FontPack = FontPack.Original,
     /** A SAF tree URI chosen in Settings › Offline, or null for the app's own storage. */
     val downloadFolder: String? = null,
@@ -100,9 +97,8 @@ class Store(private val context: Context) {
         put("showRecents", s.showRecents); put("autoDl", s.autoDl); put("wifiOnly", s.wifiOnly); put("hd", s.hd)
         put("imgWifiOnly", s.imgWifiOnly); put("speed", s.speed.toDouble()); put("skipBack", s.skipBack)
         put("skipFwd", s.skipFwd); put("sleep", s.sleep); put("continuous", s.continuous); put("autoDelete", s.autoDelete)
-        put("streamHq", s.streamHq); put("bgPlay", s.bgPlay); put("notifPlayer", s.notifPlayer)
-        put("pauseOnCall", s.pauseOnCall); put("stopOnLeave", s.stopOnLeave); put("notifySketch", s.notifySketch)
-        put("notifyEp", s.notifyEp); put("font", s.font.name)
+        put("bgPlay", s.bgPlay); put("pauseOnCall", s.pauseOnCall); put("stopOnLeave", s.stopOnLeave)
+        put("font", s.font.name)
         s.downloadFolder?.let { put("downloadFolder", it) }
     }
 
@@ -122,9 +118,10 @@ class Store(private val context: Context) {
             hd = b("hd", d.hd), imgWifiOnly = b("imgWifiOnly", d.imgWifiOnly),
             speed = if (o.has("speed")) o.getDouble("speed").toFloat() else d.speed,
             skipBack = i("skipBack", d.skipBack), skipFwd = i("skipFwd", d.skipFwd), sleep = i("sleep", d.sleep),
-            continuous = b("continuous", d.continuous), autoDelete = b("autoDelete", d.autoDelete), streamHq = b("streamHq", d.streamHq),
-            bgPlay = b("bgPlay", d.bgPlay), notifPlayer = b("notifPlayer", d.notifPlayer), pauseOnCall = b("pauseOnCall", d.pauseOnCall),
-            stopOnLeave = b("stopOnLeave", d.stopOnLeave), notifySketch = b("notifySketch", d.notifySketch), notifyEp = b("notifyEp", d.notifyEp),
+            continuous = b("continuous", d.continuous), autoDelete = b("autoDelete", d.autoDelete),
+            // Before 0.5.0 this was two toggles that only worked together; either one off meant off.
+            bgPlay = b("bgPlay", d.bgPlay) && b("notifPlayer", true), pauseOnCall = b("pauseOnCall", d.pauseOnCall),
+            stopOnLeave = b("stopOnLeave", d.stopOnLeave),
             font = runCatching { FontPack.valueOf(o.getString("font")) }.getOrDefault(d.font),
             downloadFolder = if (o.has("downloadFolder")) o.getString("downloadFolder") else null,
         )
