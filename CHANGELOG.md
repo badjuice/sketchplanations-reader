@@ -4,6 +4,13 @@ Generated from the commit history by [git-cliff](https://git-cliff.org). Version
 [Semantic Versioning](https://semver.org). 0.1.0 was the interactive prototype in Claude Design;
 0.2.0 is the first native build.
 
+## 0.7.0 (2026-10-19)
+
+### Added
+
+- Resume episodes and mark read sketches (f07fd48)
+- **share:** Share the picture with its credit (4410881)
+
 ## 0.6.0 (2026-10-19)
 
 ### Added
