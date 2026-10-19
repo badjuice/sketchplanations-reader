@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,7 +103,9 @@ fun ArchiveScreen(m: AppModel) {
 
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(m.sort, m.asc) { state.scrollToItem(0) }
+    // A new sort starts at the top; coming back to the same sort keeps the place.
+    var sorted by rememberSaveable { mutableStateOf("${m.sort}${m.asc}") }
+    LaunchedEffect(m.sort, m.asc) { if (sorted != "${m.sort}${m.asc}") { sorted = "${m.sort}${m.asc}"; state.scrollToItem(0) } }
     val tick = remember { m.scrollTopTick }
     LaunchedEffect(m.scrollTopTick) { if (m.scrollTopTick != tick) state.animateScrollToItem(0) }
 

@@ -36,9 +36,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,6 +110,13 @@ private val menuItems = listOf(
     MenuItem("Support the author", Lucide.Image) { it.go(Screen.Prints) },
 )
 
+/** Identifies a history entry: its depth, its screen and what it shows. */
+private fun AppModel.frameKey() = "${stack.size}/$screen/" + when (screen) {
+    Screen.Episode -> ep.toString()
+    Screen.Tag -> tag
+    else -> ""
+}
+
 /** The tab a screen belongs to: the screen itself at the top level, else where its stack started. */
 private fun AppModel.currentTab(): Screen = stack.firstOrNull()?.screen ?: screen
 
@@ -144,8 +153,17 @@ private fun Shell(m: AppModel, tablet: Boolean) {
         Column(Modifier.weight(1f).fillMaxHeight().background(Sk.colors.surfaceApp)) {
             if (!onboarding) AppBar(m, tablet)
             Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
-                Crossfade(scr to m.stack.size, animationSpec = tween(Sk.motion.fast), label = "screen") { (s, _) ->
-                    ScreenContent(m, s)
+                // Each history entry keeps its own scroll positions, so Back returns to the same spot.
+                val saved = rememberSaveableStateHolder()
+                val key = m.frameKey()
+                val seen = remember { mutableSetOf<String>() }
+                seen += key
+                LaunchedEffect(m.stack.size) {
+                    // Entries deeper than the current one were popped; forget them so the next visit starts fresh.
+                    seen.filter { it.substringBefore('/').toInt() > m.stack.size }.forEach { saved.removeState(it); seen -= it }
+                }
+                Crossfade(key to scr, animationSpec = tween(Sk.motion.fast), label = "screen") { (k, s) ->
+                    saved.SaveableStateProvider(k) { ScreenContent(m, s) }
                 }
             }
             if (scr == Screen.Detail) DetailActions(m)
